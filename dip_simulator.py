@@ -50,6 +50,7 @@ from contextlib import contextmanager
 
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 
+
 # PARSE USER INPUT
 
 def shape_or_obj(value):
@@ -92,7 +93,6 @@ print("")
 print("Welcome to the 3D Dipping Simulator!")
 print("____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ ")
 print("")
-print("     You have selected the following options: ", )
 print("        Shape: ", shape)
 print("        # of dips: ", number_of_dips)
 print("        Noise level: ", noise_level)
@@ -155,7 +155,7 @@ with loading():
         
         if verbose: 
             print("")
-            print("Mesh Stats: ")
+            print("1. Input Mesh: ")
             print("     vertices: ", len(mesh.vertices))
             print("     faces: ", len(mesh.faces))
             print("     volume: ", mesh.volume)
@@ -189,6 +189,29 @@ with loading():
         return voxels
 
 
+    def generate_orientations(number_of_dips, verbose=0):
+        indices = np.arange(number_of_dips)
+        
+        # Approximately uniform distribution on a sphere
+        z = 1 - 2 * (indices + 0.5) / number_of_dips
+        golden_angle = np.pi * (3 - np.sqrt(5))
+        phi = indices * golden_angle
+        theta = np.arccos(z)
+
+        # Convert to degrees
+        theta = np.degrees(theta)
+        phi = np.degrees(phi) % 360
+
+        orientations = np.column_stack((theta, phi))
+
+        if verbose:
+            print("")
+            print("Orientations: ")
+            print("     number of orientations:", orientations.shape[0])
+            print("")
+
+        return orientations
+
 
 
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
@@ -201,7 +224,9 @@ with loading():
     #2. Voxelize the mesh 
     mesh_voxelized = apply_voxelization(mesh, verbose=1)
 
-    #3. Generate orientations from the number of dips 
+    #3. Generate orientations from the number of dips, using fibonacci sphere
+    orientations = generate_orientations(number_of_dips)
+
     
 
 
