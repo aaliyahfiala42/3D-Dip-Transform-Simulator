@@ -80,6 +80,9 @@ parser.add_argument("shape",type=shape_or_obj)
 parser.add_argument("dips",type=integer_range(0, 100000))
 parser.add_argument("noise",type=integer_range(0, 100))
 args = parser.parse_args()
+shape = args.shape
+number_of_dips = args.dips
+noise_level = args.noise
 
 
 print("____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ ")
@@ -88,24 +91,34 @@ print("Welcome to the 3D Dipping Simulator!")
 print("____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ ")
 print("")
 print("     You have selected the following options: ", )
-print("        Shape: ", args.shape)
-print("        # of dips: ", args.dips)
-print("        Noise level: ", args.noise)
+print("        Shape: ", shape)
+print("        # of dips: ", number_of_dips)
+print("        Noise level: ", noise_level)
 print("____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ ")
 print("")
 
 
-
 @contextmanager
-def loading(message="*water sloshing noising*"):
+def loading(message="Dip simulation in process: "):
     stop = threading.Event()
 
     def animate():
-        for frame in itertools.cycle("|/-\\"):
+        frames = [
+            "﹏﹏﹏﹏⛴﹏﹏",
+            "﹏﹏﹏⛴﹏﹏﹏",
+            "﹏﹏⛴﹏﹏﹏﹏",
+            "﹏⛴﹏﹏﹏﹏﹏",
+            "﹏﹏⛴﹏﹏﹏﹏",
+            "﹏﹏﹏⛴﹏﹏﹏",
+            "﹏﹏﹏﹏⛴﹏﹏",
+            "﹏﹏﹏﹏﹏⛴﹏",
+        ]
+
+        for frame in itertools.cycle(frames):
             if stop.is_set():
                 break
-            print(f"\r{message} {frame}", end="", flush=True)
-            stop.wait(0.1)
+            print(f"\r{message}  {frame}   ", end="", flush=True)
+            stop.wait(0.2)
 
     thread = threading.Thread(target=animate, daemon=True)
     thread.start()
@@ -115,13 +128,52 @@ def loading(message="*water sloshing noising*"):
     finally:
         stop.set()
         thread.join()
-        print("\r" + " " * (len(message) + 2) + "\r", end="", flush=True)
+        print("\r" + " " * (len(message) + 25) + "\r",
+              end="", flush=True)
 
 
 
-with loading("Simulating dips"):
+with loading():
     time.sleep(5)
 
 
+    #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+    def get_mesh(shape, verbose):
+    
+        if shape == "sphere":
+            mesh = trimesh.creation.icosphere( subdivisions=3, radius=20)
+        elif shape == "cube":
+            mesh = trimesh.creation.box(extents=[10,10,10])
+        elif shape == "icosahedron":
+            mesh = trimesh.creation.icosphere(subdivisions=0, radius=20)
+        else:
+            mesh = trimesh.load(shape, force="mesh")
+        
+        if verbose: 
+            print("")
+            print("\nMesh Stats: ")
+            print("     vertices: ", len(mesh.vertices))
+            print("     faces: ", len(mesh.faces))
+            print("     volume: ", mesh.volume)
+            print("     surface area: ", mesh.area)
+            print("     bounds: ", mesh.bounds)
+            print("     watertight   : ", mesh.is_watertight)
+            print("")
+
+                    
+        return mesh
+
+    
+    #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+
+
+    #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+
+    get_mesh(shape, verbose=0)
+    
+
+
 print("\nDry off your object and check out the dip_data.csv.\n")
-#   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+
+
+
