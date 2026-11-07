@@ -45,6 +45,8 @@ from contextlib import contextmanager
 # Run cmd example:
 # python dip_simulator.py sphere/cube/icosahedron || "path/to/.obj" number_of_dips noise_level
 # python dip_simulator.py sphere 10 0
+# python dip_simulator.py "./meshes/pisa.obj" 10 0
+
 
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 
@@ -138,7 +140,9 @@ with loading():
 
 
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
-    def get_mesh(shape, verbose):
+    #FUNCTION DEFINTIONS
+
+    def get_mesh(shape, verbose=0):
     
         if shape == "sphere":
             mesh = trimesh.creation.icosphere( subdivisions=3, radius=20)
@@ -151,7 +155,7 @@ with loading():
         
         if verbose: 
             print("")
-            print("\nMesh Stats: ")
+            print("Mesh Stats: ")
             print("     vertices: ", len(mesh.vertices))
             print("     faces: ", len(mesh.faces))
             print("     volume: ", mesh.volume)
@@ -164,13 +168,42 @@ with loading():
         return mesh
 
     
-    #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+    def apply_voxelization(mesh, target_grid_width = 100, verbose=0):
+
+        #est mesh longest side, number of voxels needed to fill it
+        mesh_size = mesh.extents.max()
+        pitch = mesh_size / target_grid_width
+
+        #voxelize it 
+        voxel_grid = mesh.voxelized(pitch=pitch).fill()
+        voxels = voxel_grid.matrix
+
+        if verbose:
+            print("")
+            print("Voxelization: ")
+            print("     voxel pitch size: ", pitch)
+            print("     voxel grid: ", voxels.shape)
+            print("     error est. (% actual vs voxel volume) : ", (abs(mesh.volume - voxel_grid.volume) / mesh.volume) * 100 )
+            print("")
+
+        return voxels
+
+
 
 
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+    #Run the simulation in steps
 
-    get_mesh(shape, verbose=0)
+
+    #1. Load user input as a mesh we can work with
+    mesh = get_mesh(shape,  verbose=1)
+
+    #2. Voxelize the mesh 
+    mesh_voxelized = apply_voxelization(mesh, verbose=1)
+
     
+
+
 
 
 print("\nDry off your object and check out the dip_data.csv.\n")
