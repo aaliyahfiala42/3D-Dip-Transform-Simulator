@@ -186,7 +186,7 @@ with loading():
             print("     error est. (% actual vs voxel volume) : ", (abs(mesh.volume - voxel_grid.volume) / mesh.volume) * 100 )
             print("")
 
-        return voxels
+        return voxels, pitch
 
 
     def generate_orientations(number_of_dips, verbose=0):
@@ -194,7 +194,7 @@ with loading():
         
         # Approximately uniform distribution on a sphere
         z = 1 - 2 * (indices + 0.5) / number_of_dips
-        golden_angle = np.pi * (3 - np.sqrt(5))
+        golden_angle = np.pi * (3 - np.sqrt(5)) #from wolfram mathworld
         phi = indices * golden_angle
         theta = np.arccos(z)
 
@@ -206,14 +206,65 @@ with loading():
 
         if verbose:
             print("")
-            print("Orientations: ")
-            print("     number of orientations:", orientations.shape[0])
+            print("3. Orientations: ")
+            print("     # of orientations:", orientations.shape)
             print("")
 
         return orientations
 
+    #Helper function: calculate normal direction from orientations phi,theta (deg)
+    def get_normal(theta, phi):
+        theta=np.radians(theta) #conver to radians
+        phi=np.radians(phi)
+
+        #calculate vector
+        nx=np.sin(theta) * np.cos(phi)
+        ny=np.sin(theta)*np.sin(phi)
+        nz=np.cos(theta)
+        return np.array([nx, ny, nz])
 
 
+    def dip_simulator(mesh, orientations, pitch, m_slices = 100, verbose = 0):
+        #m: # of uniform measurements taken in a single dip
+
+        dips=[]
+        f = mesh.points #occupied voxel positions
+        
+        for i, (theta, phi) in enumerate(orientations):
+            n = get_normal(theta, phi)
+            d = f @ n #project the points normal to the water surface
+
+            #divide the take into m uniform slices 
+            water_h = np.linspace(d.min() - pitch, d.max() + pitch, m_slices)
+
+            #count the number voxels submerged at each water height m_i
+            counts = np.array([np.count_nonzero(d <= h) for h in water_h])
+            vol_h = counts * pitch**3
+
+            dip = np.column_stack([
+                np.full(m_slices, i+1),
+                np.full(m_slices, theta),
+                np.full(m_slices, phi),
+                water_h,
+                vol_h
+            ])
+            dips.append(dip)
+
+            if verbose:
+                print("")
+                print("Dipped object: ")
+                print("     Dip Data shape: ", dips.shape)
+                print("")
+
+        return np.array(dips)
+ 
+    def create_csv(dip_data):
+    
+        dip_output = dip_data.reshape(-1,5) #flatten to 2D
+
+        columns = ["dip no.", "theta", "phi", "water_height_measurement_mm", "displace_vol_mm3"]
+
+        np.savetxt("dip_data.csv", dip_output, delimiter=",", header=",".join(columns), comments="", fmt="%.4f" )
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
     #Run the simulation in steps
 
@@ -222,16 +273,19 @@ with loading():
     mesh = get_mesh(shape,  verbose=1)
 
     #2. Voxelize the mesh 
-    mesh_voxelized = apply_voxelization(mesh, verbose=1)
+    mesh_voxelized, pitch = apply_voxelization(mesh, verbose=1)
 
-    #3. Generate orientations from the number of dips, using fibonacci sphere
+    #3. Generate orientations from the number of dips, using Fibonacci Sphere
     orientations = generate_orientations(number_of_dips)
 
-    
+    #4. Apply dips, startup the machine, build the dip data matrix
+    dip_data = dip_simulator(mesh, orientations, pitch, m_slices = 100, verbose=1)
+
+    #create the csv output
+    create_csv(dip_data)
 
 
-
-print("\nDry off your object and check out the dip_data.csv.\n")
+print("\nDry off your mesh and check out dip_data.csv.\n")
 
 
 
