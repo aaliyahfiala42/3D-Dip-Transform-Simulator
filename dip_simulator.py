@@ -201,8 +201,8 @@ with loading():
     #2. Voxelize the mesh 
     mesh_voxelized = apply_voxelization(mesh, verbose=1)
 
+    #3. Generate orientations from the number of dips 
     
-
 
 
 
