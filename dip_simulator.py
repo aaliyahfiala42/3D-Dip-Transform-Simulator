@@ -42,6 +42,11 @@ from contextlib import contextmanager
 # columns = ["dip no.", "theta", "phi", "water_height_measurement_mm", "displace_vol_mm3"]
  
 
+#Assumptions:
+# mesh is watertight
+# size of the mesh correlates to how detailed it is 
+
+
 # Run cmd example:
 # python dip_simulator.py sphere/cube/icosahedron || "path/to/.obj" number_of_dips noise_level
 # python dip_simulator.py sphere 10 0
@@ -80,7 +85,7 @@ def integer_range(minimum, maximum):
 parser = argparse.ArgumentParser(description="3D Dipping Simulator")
 
 parser.add_argument("shape",type=shape_or_obj)
-parser.add_argument("dips",type=integer_range(0, 100000))
+parser.add_argument("dips",type=integer_range(1, 100000))
 parser.add_argument("noise",type=integer_range(0, 100))
 args = parser.parse_args()
 shape = args.shape
@@ -136,7 +141,7 @@ def loading(message="Dip simulation in process: "):
 
 
 with loading():
-    time.sleep(5)
+    #time.sleep(5)
 
 
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
@@ -186,7 +191,7 @@ with loading():
             print("     error est. (% actual vs voxel volume) : ", (abs(mesh.volume - voxel_grid.volume) / mesh.volume) * 100 )
             print("")
 
-        return voxels, pitch
+        return voxel_grid, pitch
 
 
     def generate_orientations(number_of_dips, verbose=0):
@@ -224,11 +229,11 @@ with loading():
         return np.array([nx, ny, nz])
 
 
-    def dip_simulator(mesh, orientations, pitch, m_slices = 100, verbose = 0):
+    def dip_simulator(mesh_voxelized, orientations, pitch, m_slices = 100, verbose = 0):
         #m: # of uniform measurements taken in a single dip
 
         dips=[]
-        f = mesh.points #occupied voxel positions
+        f = mesh_voxelized.points #occupied voxel positions
         
         for i, (theta, phi) in enumerate(orientations):
             n = get_normal(theta, phi)
@@ -250,11 +255,11 @@ with loading():
             ])
             dips.append(dip)
 
-            if verbose:
-                print("")
-                print("Dipped object: ")
-                print("     Dip Data shape: ", dips.shape)
-                print("")
+        if verbose:
+            print("")
+            print("Dipped object: ")
+            print("     Dip Data shape: ", np.array(dips).shape)
+            print("")
 
         return np.array(dips)
  
@@ -265,21 +270,25 @@ with loading():
         columns = ["dip no.", "theta", "phi", "water_height_measurement_mm", "displace_vol_mm3"]
 
         np.savetxt("dip_data.csv", dip_output, delimiter=",", header=",".join(columns), comments="", fmt="%.4f" )
+ 
+ 
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+ 
+ 
     #Run the simulation in steps
 
 
     #1. Load user input as a mesh we can work with
-    mesh = get_mesh(shape,  verbose=1)
+    mesh = get_mesh(shape,  verbose=0)
 
     #2. Voxelize the mesh 
-    mesh_voxelized, pitch = apply_voxelization(mesh, verbose=1)
+    mesh_voxelized, pitch = apply_voxelization(mesh, verbose=0)
 
     #3. Generate orientations from the number of dips, using Fibonacci Sphere
     orientations = generate_orientations(number_of_dips)
 
     #4. Apply dips, startup the machine, build the dip data matrix
-    dip_data = dip_simulator(mesh, orientations, pitch, m_slices = 100, verbose=1)
+    dip_data = dip_simulator(mesh_voxelized, orientations, pitch, m_slices = 100, verbose=0)
 
     #create the csv output
     create_csv(dip_data)
