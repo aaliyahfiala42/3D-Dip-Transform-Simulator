@@ -1,0 +1,14 @@
+# All Jupyter notebooks
+*.ipynb
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+
+#input meshes
+meshes/
