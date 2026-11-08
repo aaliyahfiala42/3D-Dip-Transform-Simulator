@@ -1,6 +1,6 @@
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 #
-#   Virtual Dip Simulator
+#   Part I: Virtual Dip Simulator
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 # 
 #   This script simulates dipping a 3D object into water and taking regular measurments of water depth, at various orientations (phi, theta) of the object.
@@ -32,9 +32,9 @@
 
 
 # Run cmd example:
-# python dip_simulator.py sphere/cube/icosahedron || "path/to/.obj" number_of_dips noise_level
-# python dip_simulator.py sphere 10 0
-# python dip_simulator.py "./meshes/pisa.obj" 10 0
+# python p1_dip_simulator.py sphere/cube/icosahedron || "path/to/.obj" number_of_dips noise_level
+# python p1_dip_simulator.py sphere 10 0
+# python p1_dip_simulator.py "./meshes/pisa.obj" 10 0
 
 
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
@@ -235,11 +235,11 @@ with loading():
         #m: # of uniform measurements taken in a single dip
 
         dips=[]
-        f = mesh_voxelized.points #occupied voxel positions
+        grid_coords = mesh_voxelized.points #occupied voxel positions
         
         for i, (theta, phi) in enumerate(orientations):
             n = get_normal(theta, phi)
-            d = f @ n #project the points normal to the water surface
+            d = grid_coords @ n #project the voxel center positions, normal to the water surface
 
             #divide the take into m uniform slices 
             water_h = np.linspace(d.min() - pitch, d.max() + pitch, m_slices)

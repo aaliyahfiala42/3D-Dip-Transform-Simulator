@@ -1,6 +1,6 @@
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 #
-#   3D Dip Reconstructor
+#   Part II: 3D Dip Reconstructor
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 # 
 #   This takes in a csv of dip data (either from a physical or simulated dip machine), and converts it into a .obj output mesh, using the 
@@ -29,8 +29,8 @@
 
 
 # Run cmd example:
-# python dip_reconstructor.py "path/to/dip_data.csv" 
-# python dip_reconstructor.py "dip_data.csv" 
+# python p2_dip_reconstructor.py "path/to/dip_data.csv" 
+# python p2_dip_reconstructor.py "dip_data.csv" 
 
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 
@@ -56,37 +56,56 @@ from skimage.filters import threshold_otsu
 
 # PARSE USER INPUT
 
-def dip_data_csv(value):
+def read_csv(value):
 
     
-    dip_data = Path(value)
-    if dip_data.suffix.lower() == ".csv" and dip_data.is_file():
-        return dip_data
+    path = Path(value)
+    if path.suffix.lower() == ".csv" and path.is_file():
+        return path
 
-    dip_data = np.loadtxt("dip_data.csv", delimiter=",",skiprows=1)
-    n_dips=len(np.unique(dip_data[:, 0]))
-    n_heights=dip_data.shape[0] // n_dips
-    dip_data = dip_data.reshape(n_dips, n_heights, 5)
+    else:
+        raise argparse.ArgumentTypeError( "Enter path to dip data .csv" )
 
-    raise argparse.ArgumentTypeError( "Enter path to dip data .csv" )
+def load_dip_data(path):
+    csv = np.loadtxt(path, delimiter=",",skiprows=1)
+
+    dip_ids, counts = np.unique(csv[:, 0], return_counts=True)
+    
+    k_dips=len(dip_ids) #number of different orientations
+    m_slices = counts[0] #number of slices per dip
+
+    #create dip date array
+    dips = []
+    for dip_id in dip_ids:
+        dip = dip_data[dip_data[:, 0] == dip_id]
+        dip = dip[np.argsort(dip[:, 3])]
+        dips.append(dip)
+
+    dip_data = np.array(dips)
+
+    return dip_data, k_dips, m_slices
+
+
+
 
 
 parser = argparse.ArgumentParser(description="Dip Reconstructor 9000")
 
 
-parser.add_argument("data",type=dip_data_csv)
+parser.add_argument("path",type=read_csv)
 args = parser.parse_args()
 dip_data = args.data
 
-
+dip_data, k_dips, m_slices = load_dip_data(path)
 
 print("____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ ")
 print("")
 print("Part II:  3D Dipping Reconstructor")
 print("____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ ")
 print("")
-print("        Shape: ", dip_data)
-print("        # of dips: ", len(dip_data))
+print("        Shape of dip data:  ", dip_data.shape())
+print("        # of dips: ", k_dips)
+print("        # of slices per dip: ", m_slices)
 print("____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ ")
 print("")
 
