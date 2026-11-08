@@ -12,29 +12,13 @@
 #   Author: Aaliyah Hänni
 #   Date: 17.12.2026
 #
-#   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
-
-#TODO: need to add to a requirements.txt
-import argparse
-from pathlib import Path
-
-import trimesh
-import numpy as np
-import scipy
-
-
-#loading animation
-import itertools
-import threading
-import time
-from contextlib import contextmanager
 
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 
 #USER INPUTS
 # 1. default shape (select from: "sphere", "cube", "icosahedron") selection OR path to .obj
 # 2. number of dips (integer range 0-10000)
-# 3. noise level (integer range 0-100), default none = 0  (coming soon)
+# 3. noise level (integer range 0-100), default none = 0  (#TODO coming soon)
 
 
 #OUTPUTS
@@ -43,7 +27,7 @@ from contextlib import contextmanager
  
 
 #Assumptions:
-# mesh is watertight
+# mesh is watertight and centered at the origin
 # size of the mesh correlates to how detailed it is 
 
 
@@ -51,6 +35,24 @@ from contextlib import contextmanager
 # python dip_simulator.py sphere/cube/icosahedron || "path/to/.obj" number_of_dips noise_level
 # python dip_simulator.py sphere 10 0
 # python dip_simulator.py "./meshes/pisa.obj" 10 0
+
+
+#   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+
+
+# TODO: need to add to a requirements.txt, remove packages no longer used
+import argparse
+from pathlib import Path
+
+import trimesh
+import numpy as np
+import scipy
+
+
+import itertools
+import threading
+import time
+from contextlib import contextmanager
 
 
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
@@ -95,7 +97,7 @@ noise_level = args.noise
 
 print("____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ ")
 print("")
-print("Welcome to the 3D Dipping Simulator!")
+print("Part I: 3D Dipping Simulator")
 print("____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ ")
 print("")
 print("        Shape: ", shape)
@@ -255,13 +257,14 @@ with loading():
             ])
             dips.append(dip)
 
+        dip_data = np.array(dips)
         if verbose:
             print("")
             print("Dipped object: ")
-            print("     Dip Data shape: ", np.array(dips).shape)
+            print("     Dip Data shape: ", dip_data.shape)
             print("")
 
-        return np.array(dips)
+        return dip_data
  
     def create_csv(dip_data):
     
