@@ -149,6 +149,12 @@ with loading():
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
     #FUNCTION DEFINTIONS
 
+    ############################################################################
+    # Purpose: convert the shape into a triangle mesh 
+    # Inputs: shape STRING (either a default selction or .obj)
+    # Outputs: trimesh triangle mesh 
+    ############################################################################    
+    
     def get_mesh(shape, verbose=0):
     
         if shape == "sphere":
@@ -174,6 +180,11 @@ with loading():
                     
         return mesh
 
+    ############################################################################
+    # Purpose:
+    # Inputs:
+    # Outputs: 
+    ############################################################################    
     
     def apply_voxelization(mesh, target_grid_width = 100, verbose=0):
 
