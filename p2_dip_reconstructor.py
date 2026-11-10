@@ -53,6 +53,8 @@ from scipy.sparse import csr_matrix, eye, vstack
 from scipy.ndimage import gaussian_filter
 
 from scipy.sparse.linalg import lsmr
+from scipy.sparse import kron, eye, csr_matrix, block_diag
+
 
 from skimage.filters import threshold_otsu
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
@@ -252,7 +254,77 @@ with loading():
         R_basis=np.vstack([x,y,z])
         return R_basis
 
+    #construct the roation operator
+    def rotation_theta(theta, phi, n, pitch):
+        R_basis=get_rotation_basis(theta,phi)
+        N = n**3
 
+        #all output all voxel indices, "using XYZ C-order"
+        indices= np.indices((n,n,n))
+        indices=indices.reshape(3, -1).T #
+
+        #convrt to coordinates because the object is centered at the origin
+        center = (n-1)/2
+        voxel_positions = (indices - center) *pitch
+
+
+        #inverse rotation: output coordinates -> input coords
+        rotatated_voxel_positions = voxel_positions @ R_basis
+
+        #convert into fractional voxel indices
+        source = rotatated_voxel_positions / pitch +center
+        base = np.floor(source).astype(int)
+        fraction = source -base
+
+        rows=[]
+        cols=[]
+        values=[]
+
+        #Trilinear interpolation,check the  8 neighboring voxels
+        for offset in product([0,1], repeat=3):
+            offset = np.array(offset)
+            neighbor=base+offset
+
+            #check which input neighbors are inside the grid
+            valid = np.all((neighbor >= 0 )&(neighbor<n), axis=1)
+
+            #interpolation weights 
+            weights = np.prod(np.where(offset == 1, fraction, 1-fraction), axis=1)
+            #ignore 0 weights
+            valid &= weights > 0
+
+            output_ids = np.nonzero(valid)[0]
+            input_ids = np.ravel_multi_index(neighbor[valid].T, (n,n,n))
+
+            rows.extend(output_ids)
+            cols.extend(input_ids)
+            values.extend(weights[valid])
+
+        R_i = coo_matrix((values, (rows, cols)), shape = (N,N)).tocsr()
+
+        return R_i
+    
+    def rotation_matrix(dip_data, n, pitch):
+        #builds one R_theta_k for each dip/orientation
+        R = []
+        for dip in dip_data:
+            theta = dip[0,1]
+            phi = dip[0,2]
+            R_i= rotation_theta(theta, phi, n, pitch)
+            R.append(R_i)
+
+        #stack vertically 
+        R = vstack(R, format="csr")
+        return R
+
+    def summation_matrix(n, n_dips):
+        #one slice is the sum of n*n voxels
+        S_bar = kron(csr_matrix(np.ones((1, n*n))), 
+                eye(n, format="csr"), 
+                format="csr")
+
+        S = block_diag ([S_bar] * n_dips, format = "csr")
+        return S
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
  
  
@@ -267,8 +339,13 @@ with loading():
     resampled = dip_resampling(dip_data, slice_edges)
 
     #3. Inverse optimization
-        #i. create rotation matrix R
-        #ii. create summation matrix S
+    #i. create rotation matrix R
+    R = rotation_matrix(dip_data, n, pitch)
+    #ii. create summation matrix S
+    S = summation_matrix(n, k_dips)
+    #iii. build B = S * R
+    B = S @ R
+    #iv. apply optimization algorithm
 
 
 
