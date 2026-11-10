@@ -19,6 +19,7 @@
 # columns = ["dip no.", "theta", "phi", "water_height_measurement_mm", "displace_vol_mm3"]
 # 2. TODO: optional select solver type (SVD, Cholesky, LSMR, LSQR) 
 #       default: LSMR
+# 3. TODO: option thresholding level (default is Otsu's method)
 
 
 #OUTPUTS
@@ -179,7 +180,7 @@ with loading():
             print("     extent (mm): ", extent)
             print("")            
 
-        return n, N, extent, pitch
+        return N, extent, pitch
 
     def voxelize_grid(extent, pitch, n, verbose=0):
         #uniform edges of each voxel (1 more than the #of voxels)
@@ -357,7 +358,7 @@ with loading():
         print("     RMSE: ",rmse)
         return rmse         
 
-    def clamping(f, method="otsu", verbose=0):
+    def clamping(f, n, method="otsu", verbose=0):
         threshold = threshold_otsu(f)
         f_binary  = f > threshold
         F_binary = f_binary.reshape(n,n,n) #reshape back into cube grid
@@ -387,7 +388,8 @@ with loading():
     #dip_data, k_dips, m_slices
 
     #1. Voxelize space in cubic grid 
-    n, N, extent, pitch = define_gridspace(dip_data, n=100, padding=1.1, verbose=1)
+    n = 20 #number of voxels along one axis
+    N, extent, pitch = define_gridspace(dip_data, n=n, padding=1.1)
     slice_edges, grid = voxelize_grid(extent, pitch, n)
     
     #2. Uniform resampling
@@ -409,7 +411,7 @@ with loading():
     #rmse = solution_error(g, f, B)
 
     #4. Make binary cubic grid
-    F_binary = clamping(f) 
+    F_binary = clamping(f, n) 
 
     #5. create mesh from binary grid 
     mesh = create_mesh(F_binary)
