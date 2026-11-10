@@ -44,6 +44,7 @@ import time
 from contextlib import contextmanager
 
 import numpy as np
+import trimesh
 
 from itertools import product
 from scipy.sparse import coo_matrix
@@ -57,6 +58,8 @@ from scipy.sparse import kron, eye, csr_matrix, block_diag
 
 
 from skimage.filters import threshold_otsu
+from skimage.measure import marching_cubes
+
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 
 
@@ -325,9 +328,61 @@ with loading():
 
         S = block_diag ([S_bar] * n_dips, format = "csr")
         return S
+
+    def sample_matrix(resampled, pitch):
+        g = resampled[:,:,3].ravel() #g is individual slice volumes
+        g = g / (pitch**3) #note need to normaliye g by the resolution, to match S (output is given in voxel units instead of mm3)
+        return g
+    
+    def solveSystem( B, g, method="LSMR", verbose=0 ):
+        if method == "LSMR":
+            lam = 0.05 #regularlizration strength
+
+            result = lsmr(B, g, damp=0.0, atol=1e-8, btol=1e-8, maxiter=10000)
+
+            f = result[0]
+
+            if verbose: 
+                print("")
+                print("LSMR results: ")
+                print("     istop: ", result[1])
+                print("     itn: ", result[2])
+                print("     residual norm: ", result[3])
+                print("")  
+            return f
+
+    def solution_error(g, f, B):
+        g_est = B @ f
+        rmse = np.sqrt(np.mean((g_est - g)** 2))
+        print("     RMSE: ",rmse)
+        return rmse         
+
+    def clamping(f, method="otsu", verbose=0):
+        threshold = threshold_otsu(f)
+        f_binary  = f > threshold
+        F_binary = f_binary.reshape(n,n,n) #reshape back into cube grid
+
+        return F_binary
+    
+    def create_mesh(F_binary, export=1):
+        #pad the binary volmes
+        object_padded = np.pad(F_binary.astype(float),pad_width=1, mode="constant", constant_values=0)
+
+        #extract the isosurface
+        vertices, faces, normals, values = marching_cubes(object_padded, level=0.5, spacing=(pitch,pitch,pitch))
+
+        #create mesh
+        mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=True)
+
+        if export:
+            mesh.export("dip_reconstruction.obj")
+
+        return mesh
+
+    
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
  
- 
+    
     #Reconstruct the object from the dip data
     #dip_data, k_dips, m_slices
 
@@ -339,14 +394,25 @@ with loading():
     resampled = dip_resampling(dip_data, slice_edges)
 
     #3. Inverse optimization
-    #i. create rotation matrix R
+        #i. create rotation matrix R
     R = rotation_matrix(dip_data, n, pitch)
-    #ii. create summation matrix S
+        #ii. create summation matrix S
     S = summation_matrix(n, k_dips)
-    #iii. build B = S * R
+        #iii. build B = S * R
     B = S @ R
-    #iv. apply optimization algorithm
+        #iv. build g
+    g = sample_matrix(resampled, pitch)
+        #v. apply optimization algorithm
+    f = solveSystem(B, g)
 
+    #(optional) check quality of f
+    #rmse = solution_error(g, f, B)
+
+    #4. Make binary cubic grid
+    F_binary = clamping(f) 
+
+    #5. create mesh from binary grid 
+    mesh = create_mesh(F_binary)
 
 
 
