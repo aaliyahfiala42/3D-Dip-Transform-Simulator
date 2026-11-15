@@ -12,3 +12,5 @@ env/
 
 #input meshes
 meshes/
+
+node_modules/

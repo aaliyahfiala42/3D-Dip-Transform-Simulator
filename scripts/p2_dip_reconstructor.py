@@ -32,7 +32,7 @@
 
 # Run cmd example:
 # python p2_dip_reconstructor.py "path/to/dip_data.csv" 
-# python p2_dip_reconstructor.py "dip_data.csv" 
+# python p2_dip_reconstructor.py "../data/dip_data.csv" 
 
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 
@@ -402,7 +402,7 @@ with loading():
     #dip_data, k_dips, m_slices
 
     #1. Voxelize space in cubic grid 
-    n = 100 #number of voxels along one axis
+    n = 20 #number of voxels along one axis
     N, extent, pitch = define_gridspace(dip_data, n=n, padding=1.1)
     slice_edges, grid = voxelize_grid(extent, pitch, n)
     
