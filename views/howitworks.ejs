@@ -1,4 +1,38 @@
 <%- include('partials/header') %>
+1. Archimedes Principle
+
+
+2. Voxelization
+Continuous to disrcrete
+
+3. Virtual dipping
+Rotate the dipping direction, move virtual water plane through the object and count the number of voxels submerged
+
+4. Measurement resampling
+Model assumes uniformelz spaced slices that do not occur in practicle application, need to interpolate the cumulative measurements to
+estimate uniform samples
+
+5. Rotation and Summation matrices
+How to build a solvable system of equations with the information available
+
+Rotation matrix R: Maps the original voxel values into rotated grids
+
+Summation matrix S: Add the voxel values within horizontal slices
+
+
+6. Inverse reconstruction
+Use LSMR (or other methods) to estimate the continuous occupancy values of the unknown object
+
+
+7. Clamping 
+Otsu thresholding 
+Determine the threshold level to accurately estimate "inside" and "outside" voxels 
+
+
+8. Marching cubes
+Use marching cubes to build a triangle mesh 
+
+
 
 
 <%- include('partials/footer') %>
