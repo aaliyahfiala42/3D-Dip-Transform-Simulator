@@ -329,7 +329,24 @@ with loading():
 
         S = block_diag ([S_bar] * n_dips, format = "csr")
         return S
+    
+    def rotate_and_sum_matrix(dip_data, n, pitch):
+        B = []
+        S_bar = kron(csr_matrix(np.ones((1, n*n))), 
+                        eye(n, format="csr"), 
+                        format="csr")
+        for dip in dip_data:
+            theta = dip[0,1]
+            phi = dip[0,2]
+            R_i= rotation_theta(theta, phi, n, pitch)
+            B_i = S_bar @ R_i
+            B.append(B_i)
+        #stack vertically 
+        B = vstack(B, format="csr")
+        return B
 
+
+    
     def sample_matrix(resampled, pitch):
         g = resampled[:,:,3].ravel() #g is individual slice volumes
         g = g / (pitch**3) #note need to normaliye g by the resolution, to match S (output is given in voxel units instead of mm3)
@@ -366,12 +383,10 @@ with loading():
         return F_binary
     
     def create_mesh(F_binary, export=1):
-        #pad the binary volmes
-        object_padded = np.pad(F_binary.astype(float),pad_width=1, mode="constant", constant_values=0)
 
         #extract the isosurface
-        vertices, faces, normals, values = marching_cubes(object_padded, level=0.5, spacing=(pitch,pitch,pitch))
-
+        vertices, faces, normals, values = marching_cubes(F_binary, level=0.5, spacing=(pitch,pitch,pitch))
+        
         #create mesh
         mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=True)
 
@@ -380,7 +395,6 @@ with loading():
 
         return mesh
 
-    
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
  
     
@@ -388,7 +402,7 @@ with loading():
     #dip_data, k_dips, m_slices
 
     #1. Voxelize space in cubic grid 
-    n = 20 #number of voxels along one axis
+    n = 100 #number of voxels along one axis
     N, extent, pitch = define_gridspace(dip_data, n=n, padding=1.1)
     slice_edges, grid = voxelize_grid(extent, pitch, n)
     
@@ -397,11 +411,12 @@ with loading():
 
     #3. Inverse optimization
         #i. create rotation matrix R
-    R = rotation_matrix(dip_data, n, pitch)
+        # R = rotation_matrix(dip_data, n, pitch)
         #ii. create summation matrix S
-    S = summation_matrix(n, k_dips)
+        # S = summation_matrix(n, k_dips)
         #iii. build B = S * R
-    B = S @ R
+        # B = S @ R
+    B = rotate_and_sum_matrix(dip_data, n, pitch) #save memory instead of storing both R and S, computes per dip
         #iv. build g
     g = sample_matrix(resampled, pitch)
         #v. apply optimization algorithm
