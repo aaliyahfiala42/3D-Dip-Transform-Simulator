@@ -13,6 +13,22 @@ app.use(express.urlencoded({extended:true}));
 app.use(express.static(path.join(__dirname, 'public')));
 
 
+
+app.get('/', (req, res) => {
+    res.render('home');
+});
+app.get('/howitworks', (req, res) => {
+    res.render('howitworks');
+});
+app.get('/diy', (req, res) => {
+    res.render('diy');
+});
+app.get('/references', (req, res) => {
+    res.render('references');
+});
+
+
+
 //error handler
 app.use((err, req, res, next)=>{
     console.error(err);
