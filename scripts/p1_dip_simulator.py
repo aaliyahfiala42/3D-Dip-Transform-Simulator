@@ -308,6 +308,9 @@ with (nullcontext() if os.getenv("WEB_MODE") else loading()):
     progress("loading mesh", 20)
     mesh = get_mesh(shape,  verbose=0)
 
+        #save mesh for web viewer
+    mesh.export("input.obj")
+
     #2. Voxelize the mesh 
     progress("voxelization", 40)
     mesh_voxelized, pitch = apply_voxelization(mesh, verbose=0)

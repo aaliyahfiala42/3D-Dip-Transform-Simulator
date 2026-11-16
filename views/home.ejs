@@ -20,7 +20,7 @@
     <h2>Virtual Dip Simulator</h2>
 <!--Left Column: Dip simulator input-->
     <div class="workspace">
-        <form action = "/simulate" method="POST" enctype="multipart/form-data">
+        <form id="simulateForm" action = "/simulate" method="POST" enctype="multipart/form-data">
 
         <label for="shape">Default Shape</label>
         <select name="shape" id="shape">
@@ -41,10 +41,11 @@
 
     <!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
         <div class="results">
-            <p id="sim-stage">waiting...</p>
+            <div id="simViewer" class="mesh-viewer"></div>
+            <p id="sim-stage"></p>
             <progress id="sim-progress" value="0"></progress>
 
-            <canva id="dipChart" hidden></canva>
+
             <pre id="sim-logs"></pre>
             <div id ="sim-output"></div>
         </div>
@@ -61,7 +62,7 @@
     <div class="workspace">
         <!--Left Column: Dip simulator input-->
 
-        <form action = "/reconstruct" method="POST" enctype="multipart/form-data">
+        <form id="reconstructForm" action = "/reconstruct" method="POST" enctype="multipart/form-data">
 
         <label for="csv">Upload dipping measurements(.csv)</label>
         <input type="file" id="csv" name="csv" accept=".csv">
@@ -73,10 +74,10 @@
         
         <!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
         <div class="results">
-            <p id="rec-stage">waiting...</p>
+            <div id="recViewer" class="mesh-viewer"></div>
+            <p id="rec-stage"></p>
             <progress id="rec-progress" value="0"></progress>
-            <p id ="rec-details"></p>
-            <div id="meshViewer" class="mesh-viewer" hidden></div>
+
             <pre id="rec-logs"></pre>
             <div id="rec-ouput"></div>
         </div>
@@ -87,13 +88,112 @@
 
 
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"
-  }
+<script type="module">
+import * as THREE from 'three';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+function createViewer(elementId) {
+
+    const container = document.getElementById(elementId);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xedf2f7);
+    const camera = new THREE.PerspectiveCamera(
+        45,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        10000
+    );
+
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+
+    renderer.setSize(
+        container.clientWidth,
+        container.clientHeight
+    );
+
+    container.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 2));
+
+    const light = new THREE.DirectionalLight(0xffffff, 2);
+    light.position.set(5, 10, 8);
+    scene.add(light);
+
+    const controls = new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+    controls.enableDamping = true;
+
+    let currentObject = null;
+
+    function displayObject(object) {
+
+        // Remove previous mesh
+        if (currentObject) {
+            scene.remove(currentObject);
+        }
+
+        currentObject = object;
+
+        object.traverse(child => {
+            if (child.isMesh) {
+                child.material = new THREE.MeshStandardMaterial({
+                    color: 0x347daf,
+                    side: THREE.DoubleSide
+                });
+            }
+        });
+
+        scene.add(object);
+
+        // Automatically frame the mesh
+        const box = new THREE.Box3().setFromObject(object);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3()).length();
+
+        controls.target.copy(center);
+
+        camera.position.copy(center).add(
+            new THREE.Vector3(size, size * 0.7, size)
+        );
+
+        camera.near = Math.max(0.001, size / 1000);
+        camera.far = Math.max(100, size * 100);
+        camera.updateProjectionMatrix();
+
+        controls.update();
+    }
+
+    const loader = new OBJLoader();
+
+    function load(url) {
+        loader.load(url, displayObject,
+            undefined, error => console.error(error));
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    return { load, displayObject };
 }
+
+const simulatorViewer = createViewer('simViewer');
+const reconstructionViewer = createViewer('recViewer');
+
+// Expose functions to your normal homepage JavaScript
+window.showInput = url => simulatorViewer.load(url);
+window.showMesh = url => reconstructionViewer.load(url);
 </script>
 
 <script>
@@ -139,30 +239,38 @@ async function startJob(formId, url, prefix) {
         document.getElementById(`${prefix}-logs`).textContent =
             job.logs.join('\n');
 
+
         if (job.status === 'completed') {
             clearInterval(timer);
 
             if (prefix === 'sim') {
                 latestSimulation = id;
+
                 document.getElementById('sourceJob').value = id;
 
+                // Show the original object
+                showInput(`/data/${id}/input.obj`);
+
+                // CSV download
                 document.getElementById('sim-output').innerHTML =
                     `<a href="/data/${id}/dip_data.csv" download>
-                        Download dip data (.csv)
-                     </a>`;
-
-                showDipChart(id);
+                        Download Dipping Data (.csv)
+                    </a>`;
             }
 
             if (prefix === 'rec') {
+
+                // Show reconstructed mesh
+                showMesh(`/data/${id}/dip_reconstruction.obj`);
+
+                // OBJ download
                 document.getElementById('rec-output').innerHTML =
                     `<a href="/data/${id}/dip_reconstruction.obj" download>
-                        Download reconstruction (.obj)
-                     </a>`;
-
-                showMesh(id);
+                        Download Reconstructed Mesh (.obj)
+                    </a>`;
             }
         }
+
 
         if (job.status === 'failed') {
             clearInterval(timer);
@@ -196,5 +304,16 @@ document.getElementById('reconstructForm').onsubmit = async e => {
         document.getElementById('rec-stage').textContent = error.message;
     }
 };
+
+document.getElementById('obj').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+
+    simulatorViewer.load(url);
+});
 </script>
+
+
 <%- include('partials/footer') %>

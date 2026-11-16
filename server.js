@@ -51,24 +51,11 @@ function createJob(type) {
         progress:0, 
         stage: 'starting', 
         logs:[], 
-        outout:{}}
+        outouts:{}}
     jobs.set(id, job);
     return job;
 
 }
-/*
-function updateJob(job, changes){
-    Object.assign(job, changes);
-    const payload = JSON.stringify({
-        status:job.status, 
-        progress: job.progress, 
-        stage: job.stage,
-        logs: job.logs.slice(-20),
-        outputs: job.outputs
-    });
-
-}
-    */
 
 //run python scripts (dip_simualtor.py or dip_reconstruction.py), collect output, get progress status, resolve on finish
 function runPython(script, args, job) {
@@ -76,11 +63,13 @@ function runPython(script, args, job) {
         
         const child = spawn(PYTHON,
             ['-u', path.join(SCRIPTS, script), ...args], 
-            {cwd: job.dir, shell: false, env: {...process.env, WEB_MODE:'1'}});
+            {cwd: job.dir, env: {...process.env, WEB_MODE:'1'}});
 
         let buffer='';
-        function handeLine(line) {
-            if(!line.trim()) return;
+
+        function handleLine(line) {
+            line=line.trim();
+            if(!line) return;
             if(line.startsWith('PROGRESS:')){
                 try{
                     const data = JSON.parse(line.slice(9));
@@ -92,20 +81,20 @@ function runPython(script, args, job) {
                 }
             }else{
                 job.logs.push(line);
-                job.logs = job.logs.slice(-30);
+                job.logs = job.logs.slice(-20);
 
             }
         }
 
         child.stdout.on('data', chunk => {
-            buffer += chunk.toSting();
+            buffer += chunk.toString();
             const lines = buffer.split('\n');
             buffer = lines.pop();
             lines.forEach(handleLine);
         });
 
         child.stderr.on('data', chunk => {
-            jobs.logs.push(chunk.toSting());
+            jobs.logs.push(chunk.toString());
             jobs.logs = jobs.logs.slice(-30);
         });
         child.on('error', reject);
@@ -113,7 +102,8 @@ function runPython(script, args, job) {
             if (buffer.trim()) {
                 handleLine(buffer); 
             } 
-            code === 0 ? resolve() : reject(new Error(code))
+            if(code === 0) { resolve() }
+            else {reject(new Error(code))};
         });
 
     });
@@ -157,7 +147,7 @@ app.post('/simulate', upload.single('obj'), (req, res)=>{
             await runPython('p1_dip_simulator.py',
                 [shape, dips, noise],
                 job);
-            job.outputs.csv = 'dip_data.csv';
+            job.outputs = {obj: 'input.obj', csv: 'dip_data.csv'};
             job.status = 'completed';
             job.progress = 100;
             job.stage = 'dip dataset created';
@@ -201,7 +191,7 @@ app.post('/reconstruct', upload.single('csv'), (req, res)=>{
             jobs.status= 'completed';
             jobs.progress = 100;
             jobs.stage = 'reconstruction created';
-            jobs.outputs.obj = 'dip_reconstruction.obj'
+            jobs.outputs = {obj: 'dip_reconstruction.obj' }
 
     } catch (error) {
         jobs.logs.push(error.message);
@@ -238,14 +228,10 @@ app.get('/data/:id/:name', (req, res) => {
 });
 
 //error handler
-app.use((err, req, res, next)=>{
+app.use((err, req, res, next) => {
     console.error(err);
-    req.status(err.status || 500).json({
-        error:err.status && err.status < 500 ? err.message : "Uh oh."
-    });
-
+    res.status(500).json({ error: err.message });
 });
-
 
 app.listen(PORT, '127.0.0.1', () => {console.log(`http://localhost:${PORT}/`);});
 
