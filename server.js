@@ -229,7 +229,7 @@ app.get('/job/:id', (req, res) => {
     });
 });
 // make script outputs downloadable
-app.get('/file/:id/:name', (req, res) => {
+app.get('/data/:id/:name', (req, res) => {
     const job = jobs.get(req.params.id);
     if(!job) return res.sendStatus(404);
 

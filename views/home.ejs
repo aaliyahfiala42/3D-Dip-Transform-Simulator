@@ -2,77 +2,199 @@
 
 <!--Section 0: INtroduction-->
 
-<section>
+<section class="intro">
 
     <h1>
-        Project: Dipping Transform for 3D Reconstruction
+        Project: Dip Transform for 3D Shape Reconstruction
     </h1>
-<p>Run the dip simualtor and use the output to run the dip reconstruction, or build your own dip machine
-    and upload the raw dip data directly into the dip reconstruction.
-</p>
+    <p>
+        Run the dip simulator and use the output to run the dip reconstruction, or build your own dip machine
+        and upload the raw dip data directly into the dip reconstruction.
+    </p>
 
 </section>
+
 <!--Section 1: Dip Simulator-->
 
-<section>
-    <h2>Dip Simulator</h2>
-    <p>Simulate output of a dip machine</p>
+<section class="card">
+    <h2>Virtual Dip Simulator</h2>
 <!--Left Column: Dip simulator input-->
+    <div class="workspace">
+        <form action = "/simulate" method="POST" enctype="multipart/form-data">
 
-    <form action = "/simulate" method="POST" enctype="multipart/form-data">
+        <label for="shape">Default Shape</label>
+        <select name="shape" id="shape">
+            <option value="sphere">Sphere</option>
+            <option value="cube">Cube</option>
+            <option value="icosahedron">Icosahedron</option>
+        </select>
+        <label for="obj">Or upload custom Mesh (.obj)</label>
+        <input type="file" id="obj" name="obj" accept=".obj">
+        <label for="dips">Number of dips</label>
+        <input type="number" id="dips" name="dips" value="400" min="1" max="5000">
+        <label for="noise">Noise strength (%)</label>
+        <input type="number" id="noise" name="noise" value="0" min="0" max="100">
 
-    <label for="shape">Default Shape</label>
-    <select name="shape" id="shape">
-        <option value="sphere">Sphere</option>
-        <option value="cube">Cube</option>
-        <option value="icosahedron">Icosahedron</option>
-    </select>
+        <button type="submit">Run Simulation</button>
 
-    <p>OR</p>
+    </form>
 
-    <label for="obj">Custom Mesh (.obj)</label>
-    <input type="file" id="obj" name="obj" accept=".obj">
+    <!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
+        <div class="results">
+            <p id="sim-stage">waiting...</p>
+            <progress id="sim-progress" value="0"></progress>
 
-    <label for="dips">Number of dips</label>
-    <input type="number" id="dips" name="dips" value="400" min="1" max="5000">
+            <canva id="dipChart" hidden></canva>
+            <pre id="sim-logs"></pre>
+            <div id ="sim-output"></div>
+        </div>
 
-    <label for="noise">Noise strength (%)</label>
-    <input type="number" id="noise" name="noise" value="0" min="0" max="100">
-
-    <button type="submit">Simulate Dips</button>
-
-
-
-
-</form>
-
-<!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
-
+    </div>
 </section>
 
 
 
 <!--Section 2: Dip Reconstructor-->
 
-<section>
-    <h2>Dip Reconstruction</h2>
-    <p>Simulate output of a dip machine</p>
-<!--Left Column: Dip simulator input-->
+<section class="card">
+    <h2>3D Shape Reconstruction</h2>
+    <div class="workspace">
+        <!--Left Column: Dip simulator input-->
 
-    <form action = "/reconstruct" method="POST" enctype="multipart/form-data">
+        <form action = "/reconstruct" method="POST" enctype="multipart/form-data">
 
-    <label for="csv">Upload dipping measurements</label>
+        <label for="csv">Upload dipping measurements(.csv)</label>
+        <input type="file" id="csv" name="csv" accept=".csv">
+        <p class="hint">OR leave empty to use the latest simulation ouput</p>
+        <input type="hidden" name="sourceJob" id="sourceJob">
 
-    <input type="file" id="csv" name="csv" accept=".csv">
-
-    <button type="submit">Reconstruct object</button>
-
-
-
-
-</form>
-
-<!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
+        <button type="submit">Run Reconstruction</button>
+        </form>
+        
+        <!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
+        <div class="results">
+            <p id="rec-stage">waiting...</p>
+            <progress id="rec-progress" value="0"></progress>
+            <p id ="rec-details"></p>
+            <div id="meshViewer" class="mesh-viewer" hidden></div>
+            <pre id="rec-logs"></pre>
+            <div id="rec-ouput"></div>
+        </div>
+        
+    </div>
 
 </section>
+
+
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"
+  }
+}
+</script>
+
+<script>
+let latestSimulation = null;
+
+async function startJob(formId, url, prefix) {
+    const form = document.getElementById(formId);
+    const data = new FormData(form);
+
+    // Uploaded CSV takes precedence over previous simulation
+    if (prefix === 'rec' && data.get('csv').size > 0) {
+        data.delete('sourceJob');
+    }
+
+    const response = await fetch(url, {
+        method: 'POST',
+        body: data
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(result.error);
+    }
+
+    const id = result.jobId;
+
+    document.getElementById(`${prefix}-output`).innerHTML = '';
+    document.getElementById(`${prefix}-logs`).textContent = '';
+
+    // Check Python job status every second
+    const timer = setInterval(async () => {
+
+        const response = await fetch(`/job/${id}`);
+        const job = await response.json();
+
+        document.getElementById(`${prefix}-stage`).textContent =
+            job.stage;
+
+        document.getElementById(`${prefix}-progress`).value =
+            job.progress;
+
+        document.getElementById(`${prefix}-logs`).textContent =
+            job.logs.join('\n');
+
+        if (job.status === 'completed') {
+            clearInterval(timer);
+
+            if (prefix === 'sim') {
+                latestSimulation = id;
+                document.getElementById('sourceJob').value = id;
+
+                document.getElementById('sim-output').innerHTML =
+                    `<a href="/data/${id}/dip_data.csv" download>
+                        Download dip data (.csv)
+                     </a>`;
+
+                showDipChart(id);
+            }
+
+            if (prefix === 'rec') {
+                document.getElementById('rec-output').innerHTML =
+                    `<a href="/data/${id}/dip_reconstruction.obj" download>
+                        Download reconstruction (.obj)
+                     </a>`;
+
+                showMesh(id);
+            }
+        }
+
+        if (job.status === 'failed') {
+            clearInterval(timer);
+        }
+
+    }, 1000);
+}
+
+document.getElementById('simulateForm').onsubmit = async e => {
+    e.preventDefault();
+
+    try {
+        await startJob('simulateForm', '/simulate', 'sim');
+    } catch (error) {
+        document.getElementById('sim-stage').textContent = error.message;
+    }
+};
+
+document.getElementById('reconstructForm').onsubmit = async e => {
+    e.preventDefault();
+
+    if (!latestSimulation &&
+        !document.querySelector('[name="csv"]').files.length) {
+        alert('Upload a CSV or complete a simulation first.');
+        return;
+    }
+
+    try {
+        await startJob('reconstructForm', '/reconstruct', 'rec');
+    } catch (error) {
+        document.getElementById('rec-stage').textContent = error.message;
+    }
+};
+</script>
 <%- include('partials/footer') %>
