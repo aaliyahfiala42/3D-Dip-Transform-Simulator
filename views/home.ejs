@@ -1,9 +1,25 @@
 <%- include('partials/header') %>
 
+<!--Section 0: INtroduction-->
 
+<section>
 
+    <h1>
+        Project: Dipping Transform for 3D Reconstruction
+    </h1>
+<p>Run the dip simualtor and use the output to run the dip reconstruction, or build your own dip machine
+    and upload the raw dip data directly into the dip reconstruction.
+</p>
 
-<form action = "/api/jobs/simulate" method="POST" enctype="multipart/form-data">
+</section>
+<!--Section 1: Dip Simulator-->
+
+<section>
+    <h2>Dip Simulator</h2>
+    <p>Simulate output of a dip machine</p>
+<!--Left Column: Dip simulator input-->
+
+    <form action = "/simulate" method="POST" enctype="multipart/form-data">
 
     <label for="shape">Default Shape</label>
     <select name="shape" id="shape">
@@ -21,12 +37,42 @@
     <input type="number" id="dips" name="dips" value="400" min="1" max="5000">
 
     <label for="noise">Noise strength (%)</label>
-    <input type="number" id="noise" name="noise" value="0" min="0" max="100" disabled>
+    <input type="number" id="noise" name="noise" value="0" min="0" max="100">
 
     <button type="submit">Simulate Dips</button>
 
 
-    
+
 
 </form>
+
+<!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
+
+</section>
+
+
+
+<!--Section 2: Dip Reconstructor-->
+
+<section>
+    <h2>Dip Reconstruction</h2>
+    <p>Simulate output of a dip machine</p>
+<!--Left Column: Dip simulator input-->
+
+    <form action = "/reconstruct" method="POST" enctype="multipart/form-data">
+
+    <label for="csv">Upload dipping measurements</label>
+
+    <input type="file" id="csv" name="csv" accept=".csv">
+
+    <button type="submit">Reconstruct object</button>
+
+
+
+
+</form>
+
+<!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
+
+</section>
 <%- include('partials/footer') %>
