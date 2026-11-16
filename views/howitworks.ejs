@@ -19,8 +19,15 @@ Rotation matrix R: Maps the original voxel values into rotated grids
 
 Summation matrix S: Add the voxel values within horizontal slices
 
+B = S . R
+
+B is not (generally) square and invertible
 
 6. Inverse reconstruction
+This is an inverse optimization as we are using the dip measurements to estimate the original 3D object. 
+As it is dicrete the solutions may not be unique. 
+
+
 Use LSMR (or other methods) to estimate the continuous occupancy values of the unknown object
 
 

@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const multer = require('multer');
@@ -10,6 +9,9 @@ const app = express();
 const {spawn } = require('child_process');
 
 const PYTHON = path.join(__dirname, '.venv', 'bin', 'python');
+const SCRIPTS = path.join(__dirname, 'scripts');
+const DATA = path.join(__dirname, 'data');
+
 const PORT = 3013;
 
 
@@ -20,36 +22,9 @@ app.use(express.json());
 app.use(express.urlencoded({extended:true}));
 app.use(express.static(path.join(__dirname, 'public')));
 
-//run python scripts 
-function runPython(scriptName, args, workDir, onOutput) {
-    return new Promise((resolve, reject )=> {
-        
-        const child = spawn(PYTHON,
-            ['-u', scriptName, ...args], 
-            {cwd: workDir, shell: false, windowsHide:true});
 
-        let stderr= '';
-        child.stdout.on('data', chunk => {
-            onOuput?.(chunk.toString());
 
-        });
-        child.stderr.on('data', chunk => {
-            const message = chunk.toString();
-            stderr = (stderr+message).slice(-8000);
-            onOutput?.(message);
-        })
-        child.on('error', reject);
-        child.on('close', code => {
-            if (code === 0 ) {
-                resolve();
-            } else {
-                reject(new Error(stderr));
-            }
-        });
-
-    });
-}
-
+fs.mkdirSync(DATA, {recursive:true});
 //allow .obj/.csv/.txt uploads
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -61,26 +36,27 @@ const upload = multer({
 const jobs = new Map();
 function createJob(type) {
     const id = crypto.randomUUID();
-    const dir = path.join('data', id);
 
+    const dir = path.join(DATA, id);
     fs.mkdirSync(dir, {recursive:true});
+
     //type: simulation, reconstruction
     //statuses: queued, running, completed, failed
-    //stage(simulation): starting simulation, voxelization, generating orientation, simulating dipping, creating dip dataset
+    //stage(simulation): starting simulation, voxelization, generating orientation, simulating dipping, creating dip dataset, simulator complete
     //stage(reconstruction): starting reconstruction, resampling, inverse optimization, clamping, construcing object, building output file
     const job = {
-        id, 
+        id, dir,
         type, 
         status: 'queued', 
         progress:0, 
-        stage: 'preprocessing', 
+        stage: 'starting', 
         logs:[], 
         outout:{}}
     jobs.set(id, job);
     return job;
 
 }
-
+/*
 function updateJob(job, changes){
     Object.assign(job, changes);
     const payload = JSON.stringify({
@@ -92,7 +68,56 @@ function updateJob(job, changes){
     });
 
 }
+    */
 
+//run python scripts (dip_simualtor.py or dip_reconstruction.py), collect output, get progress status, resolve on finish
+function runPython(script, args, job) {
+    return new Promise((resolve, reject )=> {
+        
+        const child = spawn(PYTHON,
+            ['-u', path.join(SCRIPTS, script), ...args], 
+            {cwd: job.dir, shell: false, env: {...process.env, WEB_MODE:'1'}});
+
+        let buffer='';
+        function handeLine(line) {
+            if(!line.trim()) return;
+            if(line.startsWith('PROGRESS:')){
+                try{
+                    const data = JSON.parse(line.slice(9));
+                    job.stage = data.stage;
+                    job.progress = data.percent;
+
+                } catch {
+                    jobs.logs.push(line);
+                }
+            }else{
+                job.logs.push(line);
+                job.logs = job.logs.slice(-30);
+
+            }
+        }
+
+        child.stdout.on('data', chunk => {
+            buffer += chunk.toSting();
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            lines.forEach(handleLine);
+        });
+
+        child.stderr.on('data', chunk => {
+            jobs.logs.push(chunk.toSting());
+            jobs.logs = jobs.logs.slice(-30);
+        });
+        child.on('error', reject);
+        child.on('close', code => {
+            if (buffer.trim()) {
+                handleLine(buffer); 
+            } 
+            code === 0 ? resolve() : reject(new Error(code))
+        });
+
+    });
+}
 
 app.get('/', (req, res) => {
     res.render('home');
@@ -114,54 +139,36 @@ app.get('/references', (req, res) => {
 app.post('/simulate', upload.single('obj'), (req, res)=>{
     //collect user inputs
     const shape = req.body.shape;
-    const dips = Number(req.body.dips);
-    const noise = Number(req.body.noise);
+    const dips = String(req.body.dips);
+    const noise = String(req.body.noise);
     const job = createJob('simulation');
+    res.json({jobId: job.id});
 
     //if .obj file is uploaded, use that as shape instead
     if (req.file) {
-        const inputPath = path.join('data', 'input.obj');
-        fs.writeFileSync(inputPath, req.file.buffer);
-        shape = inputPath;
+        shape = path.join(job.dir, 'input.obj');
+        fs.writeFileSync(shape, req.file.buffer);
     }
 
-    updateJob(job, {
-        status: 'running',
-        progress: 0, 
-        stage: 'starting simulation'
-    });
 
     //try running the simulator.py asynchrosly
-    setImmediate(async () => {
+    (async () => {
         try{
             await runPython('p1_dip_simulator.py',
-                [shape, String(dips), String(noise)],
-                'data',
-                message => {
-                    jobs.logs.push(message);
-                    updateJobs(job,  {
-                        stage: 'simulating dipping',
-                        progress: 50
-                        }
-                    );
-                } 
-            );
-            const csvPath = path.join('data', 'dip_data.csv')
-        
-        updateJobs(job,  {
-            status: 'completed',
-            progress: 100,
-            stage: 'dip dataset created',
-            outputs: {
-            csv: `/data/dip_data.csv`
-            }
-        });
+                [shape, dips, noise],
+                job);
+            job.outputs.csv = 'dip_data.csv';
+            job.status = 'completed';
+            job.progress = 100;
+            job.stage = 'dip dataset created';
+
     } catch (error) {
-        jobs.logs.push(error.message);
-        updateJob(job, {status: 'failed', stage:'simulation failed'});
+        job.status= 'failed';
+        job.stage='simulation failed';
+        job.logs.push(error.message);
 
     }
-    });
+    })();
 
 });
 
@@ -173,50 +180,63 @@ app.post('/reconstruct', upload.single('csv'), (req, res)=>{
 
     //if .obj file is uploaded, use that as shape instead
     if (req.file) {
-        const inputPath = path.join('data', 'dip_data.csv');
+        const inputPath = path.join(job.dir, 'dip_data.csv');
         fs.writeFileSync(inputPath, req.file.buffer);
+    } else {
+        const previous = jobs.get(req.body.sourceJob);
+        fs.copyFileSync(path.join(previous.dir, 'dip_data.csv'), input);
     }
 
-    updateJob(job, {
-        status: 'running',
-        stage: 'starting reconstruction'
-    });
+    res.json({jobId: job.id});
 
     //try running the simulator.py asynchrosly
-    setImmediate(async () => {
+    (async () => {
         try{
             await runPython('p2_dip_simulator.py',
                 ['dip_data.csv'],
-                'data',
-                message => {
-                    jobs.logs.push(message);
-                    updateJobs(job,  {
-                        stage: 'reconstructing',
-                        progress: 50
-                        }
-                    );
-                } 
+                job
+
             );
-            const result = path.join('data', 'dip_reconstruction.obj')
-        
-        updateJobs(job,  {
-            status: 'completed',
-            progress: 100,
-            stage: 'reconstruction created',
-            outputs: {
-            csv: `/data/dip_reconstruction.obj`
-            }
-        });
+            
+            jobs.status= 'completed';
+            jobs.progress = 100;
+            jobs.stage = 'reconstruction created';
+            jobs.outputs.obj = 'dip_reconstruction.obj'
+
     } catch (error) {
         jobs.logs.push(error.message);
-        updateJob(job, {status: 'failed', stage:'reconstruction failed'});
+        job.status = 'failed';
+        job.stage ='reconstruction failed';
 
     }
-    });
+    })();
 
 });
 
-//get 
+//get current job info
+app.get('/job/:id', (req, res) => {
+    const job = jobs.get(req.params.id);
+    if(!job) return res.sendStatus(400);
+
+    res.json({
+        id: job.id,
+        type: job.type,
+        status:job.status,
+        stage:job.stage,
+        progress:job.progress,
+        logs:job.logs.slice(-10),
+        outputs:job.outputs
+    });
+});
+// make script outputs downloadable
+app.get('/file/:id/:name', (req, res) => {
+    const job = jobs.get(req.params.id);
+    if(!job) return res.sendStatus(404);
+
+    const filename = req.params.name;
+    res.sendFile(path.join(job.dir, filename));
+});
+
 //error handler
 app.use((err, req, res, next)=>{
     console.error(err);

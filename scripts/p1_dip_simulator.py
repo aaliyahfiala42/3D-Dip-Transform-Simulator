@@ -55,8 +55,20 @@ import time
 from contextlib import contextmanager
 
 
-#   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+import os 
+from contextlib import nullcontext
+import json 
 
+#   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
+#progress bar for webapp
+def progress(stage, percent):
+    print(
+        "PROGRESS:" + json.dumps({
+            "stage":stage,
+            "percent":percent
+        }),
+        flush=True
+    )
 
 # PARSE USER INPUT
 
@@ -142,7 +154,7 @@ def loading(message="Dip simulation in process: "):
 
 
 
-with loading():
+with (nullcontext() if os.getenv("WEB_MODE") else loading()):
     #time.sleep(5)
 
 
@@ -293,19 +305,27 @@ with loading():
 
 
     #1. Load user input as a mesh we can work with
+    progress("loading mesh", 20)
     mesh = get_mesh(shape,  verbose=0)
 
     #2. Voxelize the mesh 
+    progress("voxelization", 40)
     mesh_voxelized, pitch = apply_voxelization(mesh, verbose=0)
 
     #3. Generate orientations from the number of dips, using Fibonacci Sphere
+    progress("generating orientations", 60)
     orientations = generate_orientations(number_of_dips)
 
     #4. Apply dips, startup the machine, build the dip data matrix
+    progress("simulating dips", 80)
     dip_data = dip_simulator(mesh_voxelized, orientations, pitch, m_slices = 100, verbose=0)
 
     #create the csv output
+    progress("saving dip data", 80)
     create_csv(dip_data)
+
+    progress("Dry off your mesh and check out dip_data.csv.", 80)
+
 
 
 print("\nDry off your mesh and check out dip_data.csv.\n")
