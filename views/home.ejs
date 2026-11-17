@@ -33,7 +33,7 @@
         <input type="file" id="obj" name="obj" accept=".obj">
         <label for="dips">Number of dips</label>
         <input type="number" id="dips" name="dips" value="400" min="1" max="5000">
-        <label for="noise">Noise strength (%)</label>
+        <label for="noise">Add ripples (noise %)</label>
         <input type="number" id="noise" name="noise" value="0" min="0" max="100">
 
         <button type="submit">Run Simulation</button>
@@ -43,11 +43,7 @@
     <!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
         <div class="results">
             <div id="simViewer" class="mesh-viewer"></div>
-
-            <progress id="sim-progress" value="0" max="100"></progress>
-
-            <p id = "sim-stage"></p>
-            <pre id="sim-logs"></pre>
+            <pre id="sim-logs" class="terminal"></pre>
             <div id ="sim-output" class="downloads"></div>
         </div>
 
@@ -76,10 +72,7 @@
         <!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
         <div class="results">
             <div id="recViewer" class="mesh-viewer"></div>
-            <p id="rec-stage"></p>
-            <progress id="rec-progress" value="0" max="100"></progress>
-
-            <pre id="rec-logs"></pre>
+            <pre id="rec-logs" class="terminal"></pre>
             <div id="rec-output"  class="downloads"></div>
         </div>
         
@@ -96,6 +89,7 @@
     }
 }
 </script>
+
 <script type="module">
 import * as THREE from 'three';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
@@ -218,9 +212,26 @@ document.getElementById('obj').onchange = e => {
 // ---------
 // 3. Run Python jobs
 // -----------------------
+
+// Display \r as a terminal-style overwrite of the current line
+function terminalText(raw) {
+    const lines = [''];
+
+    for (const char of raw) {
+        if (char === '\r') {
+            lines[lines.length - 1] = '';
+        } else if (char === '\n') {
+            lines.push('');
+        } else {
+            lines[lines.length - 1] += char;
+        }
+    }
+
+    return lines.join('\n');
+}
+
 async function runJob(formId, url, prefix) {
-    const form = document.getElementById(formId);
-    const data = new FormData(form);
+    const data = new FormData(document.getElementById(formId));
 
     const response = await fetch(url, {
         method: 'POST',
@@ -232,35 +243,28 @@ async function runJob(formId, url, prefix) {
 
     const id = result.jobId;
 
-    const stage = document.getElementById(`${prefix}-stage`);
-    const progress = document.getElementById(`${prefix}-progress`);
-    const logs = document.getElementById(`${prefix}-logs`);
+    const terminal = document.getElementById(`${prefix}-logs`);
     const output = document.getElementById(`${prefix}-output`);
 
-    stage.textContent = 'Starting...';
-    progress.value = 0;
-    logs.textContent = '';
+    terminal.textContent = 'Starting Python...';
     output.innerHTML = '';
 
     const timer = setInterval(async () => {
         try {
-            const response = await fetch(`/job/${id}`);
-            if (!response.ok) throw new Error('Unable to get job status');
+            const res = await fetch(`/job/${id}`);
+            if (!res.ok) throw new Error('Could not retrieve Python output');
 
-            const job = await response.json();
+            const job = await res.json();
 
-            stage.textContent = job.stage;
-            progress.value = job.progress;
-            logs.textContent = job.logs.join('\n');
+            // Display live Python stdout/stderr
+            terminal.textContent = terminalText(job.output);
+            terminal.scrollTop = terminal.scrollHeight;
 
-            if (job.status === 'failed') {
-                clearInterval(timer);
-                return;
-            }
-
-            if (job.status !== 'completed') return;
+            if (job.status === 'running') return;
 
             clearInterval(timer);
+
+            if (job.status === 'failed') return;
 
             if (prefix === 'sim') {
                 latestSimulation = id;
@@ -280,12 +284,11 @@ async function runJob(formId, url, prefix) {
                     <a href="/data/${id}/dip_data.csv" download>Download CSV</a>
                 `;
             }
-
         } catch (error) {
             clearInterval(timer);
-            stage.textContent = error.message;
+            terminal.textContent += `\nERROR: ${error.message}`;
         }
-    }, 1000);
+    }, 200);
 }
 
 // -----------------------
@@ -297,7 +300,7 @@ document.getElementById('simulateForm').onsubmit = async e => {
     try {
         await runJob('simulateForm', '/simulate', 'sim');
     } catch (error) {
-        document.getElementById('sim-stage').textContent = error.message;
+        document.getElementById('sim-logs').textContent = error.message;
     }
 };
 
@@ -314,7 +317,7 @@ document.getElementById('reconstructForm').onsubmit = async e => {
     try {
         await runJob('reconstructForm', '/reconstruct', 'rec');
     } catch (error) {
-        document.getElementById('rec-stage').textContent = error.message;
+        document.getElementById('rec-logs').textContent = error.message;
     }
 };
 </script>

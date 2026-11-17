@@ -1,27 +1,62 @@
 <%- include('partials/header') %>
 1. Archimedes Principle
 
+Eureka! 
 
-2. Voxelization
-Continuous to disrcrete
+The volume of fluid displaced is equal to the volume of the object submerged
 
-3. Virtual dipping
-Rotate the dipping direction, move virtual water plane through the object and count the number of voxels submerged
+Delta V_water = delta V_object submegered
 
-4. Measurement resampling
-Model assumes uniformelz spaced slices that do not occur in practicle application, need to interpolate the cumulative measurements to
-estimate uniform samples
+This is the foundation for the logic behind the dip machine. By measuring the level of water displaced as an object is dipped in various orientations, 
+we can obtain the 3D dip transform of an object. 
+What is a 3D dip transform? 
 
-5. Rotation and Summation matrices
-How to build a solvable system of equations with the information available
+Given an object, we can represent it as volumetric binary implicit function:
+F(x) = 1 x in the objects interior domain, 0 otherwise
 
-Rotation matrix R: Maps the original voxel values into rotated grids
+Then the dip transform of the object is given by a time t and orientation theta, wjere the step function acts as a binary answer to the question "is underwater?". 
+The time derivative, the rate at which the objects accumulated volume changes over the course of a dip, is equivalent to the Radon trasform of a binary object. The intergral of this is equivalent to exactly the object volume.
 
-Summation matrix S: Add the voxel values within horizontal slices
 
-B = S . R
+The way in which the volume is accumulated, i.e the rate at which the water rises for different thetea, can be used to uniquely define an object shape.
 
-B is not (generally) square and invertible
+Example: 
+
+[Insert images of cube and sphere and their corresponding dip profile, showing how the shape intuitively changes according to the shpae ]
+
+
+2. Dipping Simulator 
+    a. To allow experiments with various objects and configurable parameters, and to prove that the concept can provide reasonable results, it makes sense to start with 
+    a virtual dip machine. The virtual dipping machine takes in various parameters and outputs a tensor of example output that one would see after using a dip machine, simulating counting
+    the amount of object submerged, taking measurements of the amount of "water displaced", for vairous orientation (phi, theta).
+
+    [insert visual of a voxelized sphere half submergeed in water. ]
+
+    a. Voxelization
+    Continuous to disrcrete
+    Given an infinite number of orientations (i.e inifinte dips), we would be able to solve the shape perfectly, 
+    As time is limited, we must satisfy ourselves with the practicle application of making an estimation with a limited number of dipping orientations
+
+
+    b. Virtual dipping
+    Rotate the dipping direction, move virtual water plane through the object and count the number of voxels submerged
+
+
+3. Dip Reconstruction
+    a. Measurement resampling
+    Model assumes uniformelz spaced slices that do not occur in practicle application, need to interpolate the cumulative measurements to
+    estimate uniform samples
+
+    b. Rotation and Summation matrices
+    How to build a solvable system of equations with the information available
+
+    Rotation matrix R: Maps the original voxel values into rotated grids
+
+    Summation matrix S: Add the voxel values within horizontal slices
+
+    B = S . R
+
+    B is not (generally) square and invertible
 
 6. Inverse reconstruction
 This is an inverse optimization as we are using the dip measurements to estimate the original 3D object. 

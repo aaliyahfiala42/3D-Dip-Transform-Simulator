@@ -55,20 +55,7 @@ import time
 from contextlib import contextmanager
 
 
-import os 
-from contextlib import nullcontext
-import json 
-
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
-#progress bar for webapp
-def progress(stage, percent):
-    print(
-        "PROGRESS:" + json.dumps({
-            "stage":stage,
-            "percent":percent
-        }),
-        flush=True
-    )
 
 # PARSE USER INPUT
 
@@ -154,7 +141,7 @@ def loading(message="Dip simulation in process: "):
 
 
 
-with (nullcontext() if os.getenv("WEB_MODE") else loading()):
+with loading():
     #time.sleep(5)
 
 
@@ -295,7 +282,7 @@ with (nullcontext() if os.getenv("WEB_MODE") else loading()):
 
         columns = ["dip no.", "theta", "phi", "water_height_measurement_mm", "displace_vol_mm3"]
 
-        np.savetxt("dip_data.csv", dip_output, delimiter=",", header=",".join(columns), comments="", fmt="%.4f" )
+        np.savetxt("dip_data.csv", dip_output, delimiter=",", header=",".join(columns), comments="", fmt="%.10f" )
  
  
     #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
@@ -305,33 +292,27 @@ with (nullcontext() if os.getenv("WEB_MODE") else loading()):
 
 
     #1. Load user input as a mesh we can work with
-    progress("loading mesh", 20)
+    print("\n Loading mesh", flush=True)
     mesh = get_mesh(shape,  verbose=0)
 
         #save mesh for web viewer
     mesh.export("input.obj")
 
     #2. Voxelize the mesh 
-    progress("voxelization", 40)
+    print("\n Voxelization", flush=True)
     mesh_voxelized, pitch = apply_voxelization(mesh, verbose=0)
 
     #3. Generate orientations from the number of dips, using Fibonacci Sphere
-    progress("generating orientations", 60)
+    print("\n Generating orientations", flush=True)
     orientations = generate_orientations(number_of_dips)
 
     #4. Apply dips, startup the machine, build the dip data matrix
-    progress("simulating dips", 80)
+    print("\n Simulating dips", flush=True)
     dip_data = dip_simulator(mesh_voxelized, orientations, pitch, m_slices = 100, verbose=0)
 
     #create the csv output
-    progress("saving dip data", 80)
+    print("\n Saving dip data", flush=True)
     create_csv(dip_data)
 
-    progress("Dry off your mesh and check out dip_data.csv.", 80)
 
-
-
-print("\nDry off your mesh and check out dip_data.csv.\n")
-
-
-
+print("\n Dry off your mesh and check out dip_data.csv.", flush=True)

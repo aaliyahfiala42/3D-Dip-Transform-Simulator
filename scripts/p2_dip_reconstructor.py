@@ -62,22 +62,7 @@ from skimage.filters import threshold_otsu
 from skimage.measure import marching_cubes
 
 
-import os 
-from contextlib import nullcontext
-import json 
-
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
-
-#progress bar for webapp
-def progress(stage, percent):
-    print(
-        "PROGRESS:" + json.dumps({
-            "stage":stage,
-            "percent":percent
-        }),
-        flush=True
-    )
-
 # PARSE USER INPUT
 
 def read_csv(value):
@@ -165,7 +150,7 @@ def loading(message="Dip reconstruction in process: "):
 
 
 
-with (nullcontext() if os.getenv("WEB_MODE") else loading()):
+with loading():
     #time.sleep(5)
 
 
@@ -416,17 +401,17 @@ with (nullcontext() if os.getenv("WEB_MODE") else loading()):
     #dip_data, k_dips, m_slices
 
     #1. Voxelize space in cubic grid 
-    progress("creating voxel grid", 20)
+    print("\n Defining voxel grid", flush=True)
     n = 20 #number of voxels along one axis
     N, extent, pitch = define_gridspace(dip_data, n=n, padding=1.1)
     slice_edges, grid = voxelize_grid(extent, pitch, n)
     
     #2. Uniform resampling
-    progress("resampling uniformly", 40)
+    print("\n Resampling uniformly", flush=True)
     resampled = dip_resampling(dip_data, slice_edges)
 
     #3. Inverse optimization
-    progress("optimizing inversely", 60)
+    print("\n  Optimizing inversely", flush=True)
         #i. create rotation matrix R
         # R = rotation_matrix(dip_data, n, pitch)
         #ii. create summation matrix S
@@ -443,14 +428,13 @@ with (nullcontext() if os.getenv("WEB_MODE") else loading()):
     #rmse = solution_error(g, f, B)
 
     #4. Make binary cubic grid
-    progress("clamping", 80)
+    print("\n Clamping", flush=True)
     F_binary = clamping(f, n) 
 
     #5. create mesh from binary grid 
-    progress("creating mesh", 90)
+    print("\n Creating mesh", flush=True)
     mesh = create_mesh(F_binary)
     
-    progress("3D reconstruction complete. Bio-digital jazz, man.", 100)
 
 
 

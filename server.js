@@ -50,9 +50,7 @@ function createJob(type) {
         id, dir,
         type, 
         status: 'queued', 
-        progress:0, 
-        stage: 'starting', 
-        logs:[], 
+        output: '', 
         outputs:{}}
     jobs.set(id, job);
     return job;
@@ -65,46 +63,22 @@ function runPython(script, args, job) {
         
         const child = spawn(PYTHON,
             ['-u', path.join(SCRIPTS, script), ...args], 
-            {cwd: job.dir, env: {...process.env, WEB_MODE:'1'}});
+            {cwd: job.dir});
 
-        let buffer='';
-        let errorText = '';
-
-        function handleLine(line) {
-            line=line.trim();
-            if(!line) return;
-            if(line.startsWith('PROGRESS:')){
-                try{
-                    const data = JSON.parse(line.slice(9));
-                    job.stage = data.stage;
-                    job.progress = data.percent;
-                    return;
-                } catch {
-                }
-            }
-            job.logs.push(line);
-            job.logs = job.logs.slice(-20);
-
-        
-        }
 
         child.stdout.on('data', chunk => {
-            buffer += chunk.toString();
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-            lines.forEach(handleLine);
+            job.output += chunk.toString();
+            job.output = job.output.slice(-10000);
+
         });
 
         child.stderr.on('data', chunk => {
-            errorText += chunk.toString();
-            job.logs.push(chunk.toString());
-            job.logs = job.logs.slice(-30);
+            job.output += chunk.toString();
+            job.output = job.output.slice(-10000);
         });
+
         child.on('error', reject);
         child.on('close', code => {
-            if (buffer.trim()) {
-                handleLine(buffer); 
-            } 
             if(code === 0) { resolve() }
             else {reject(new Error(code))};
         });
@@ -153,8 +127,6 @@ app.post('/simulate', upload.single('obj'), (req, res)=>{
                 job);
             job.outputs = {obj: 'input.obj', csv: 'dip_data.csv'};
             job.status = 'completed';
-            job.progress = 100;
-            job.stage = 'dip dataset created';
 
     } catch (error) {
         job.status= 'failed';
@@ -196,8 +168,6 @@ app.post('/reconstruct', upload.single('csv'), (req, res)=>{
             const objPath = path.join(job.dir, 'dip_reconstruction.obj');
             
             job.status= 'completed';
-            job.progress = 100;
-            job.stage = 'reconstruction created';
             job.outputs = {obj: 'dip_reconstruction.obj' }
 
     } catch (error) {
@@ -216,12 +186,8 @@ app.get('/job/:id', (req, res) => {
     if(!job) return res.sendStatus(400);
 
     res.json({
-        id: job.id,
-        type: job.type,
         status:job.status,
-        stage:job.stage,
-        progress:job.progress,
-        logs:job.logs.slice(-10),
+        output:job.output,
         outputs:job.outputs
     });
 });
