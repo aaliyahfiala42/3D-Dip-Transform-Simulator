@@ -14,3 +14,5 @@ env/
 meshes/
 
 node_modules/
+
+data/
