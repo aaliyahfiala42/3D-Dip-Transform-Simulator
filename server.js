@@ -133,7 +133,7 @@ app.post('/simulate', upload.single('obj'), (req, res)=>{
     const job = createJob('simulation');
 
     //collect user inputs
-    const shape = req.body.shape;
+    let shape = req.body.shape;
     const dips = String(req.body.dips);
     const noise = String(req.body.noise);
  
@@ -193,11 +193,12 @@ app.post('/reconstruct', upload.single('csv'), (req, res)=>{
                 job
 
             );
+            const objPath = path.join(job.dir, 'dip_reconstruction.obj');
             
-            jobs.status= 'completed';
-            jobs.progress = 100;
-            jobs.stage = 'reconstruction created';
-            jobs.outputs = {obj: 'dip_reconstruction.obj' }
+            job.status= 'completed';
+            job.progress = 100;
+            job.stage = 'reconstruction created';
+            job.outputs = {obj: 'dip_reconstruction.obj' }
 
     } catch (error) {
         job.logs.push(error.message);
