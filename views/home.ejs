@@ -5,7 +5,7 @@
 <section class="intro">
 
     <h1>
-        Project: Dip Transform for 3D Shape Reconstruction
+        Dip Transform for 3D Shape Reconstruction
     </h1>
     <p>
         Run the dip simulator and use the output to run the dip reconstruction, or build your own dip machine
@@ -43,12 +43,12 @@
     <!--Right Column: Dip simulator status, visualization (changing with status), output for download-->
         <div class="results">
             <div id="simViewer" class="mesh-viewer"></div>
-            <p id="sim-stage"></p>
+
             <progress id="sim-progress" value="0"></progress>
 
-
+            <p id = "sim-stage"></p>
             <pre id="sim-logs"></pre>
-            <div id ="sim-output"></div>
+            <div id ="sim-output" class="downloads"></div>
         </div>
 
     </div>
@@ -80,7 +80,7 @@
             <progress id="rec-progress" value="0"></progress>
 
             <pre id="rec-logs"></pre>
-            <div id="rec-ouput"></div>
+            <div id="rec-output"  class="downloads"></div>
         </div>
         
     </div>
@@ -88,126 +88,138 @@
 </section>
 
 
-
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"
+    }
+}
+</script>
 <script type="module">
 import * as THREE from 'three';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-function createViewer(elementId) {
+let latestSimulation = null;
 
-    const container = document.getElementById(elementId);
+// -----------------------
+// 1. Interactive OBJ viewer
+// -----------------------
+function createViewer(id) {
+    const container = document.getElementById(id);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xedf2f7);
-    const camera = new THREE.PerspectiveCamera(
-        45,
-        container.clientWidth / container.clientHeight,
-        0.1,
-        10000
-    );
+    scene.background = new THREE.Color('#17263b');
 
-    const renderer = new THREE.WebGLRenderer({
-        antialias: true
-    });
-
-    renderer.setSize(
-        container.clientWidth,
-        container.clientHeight
-    );
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 10000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
 
     container.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 2));
-
-    const light = new THREE.DirectionalLight(0xffffff, 2);
-    light.position.set(5, 10, 8);
-    scene.add(light);
-
-    const controls = new OrbitControls(
-        camera,
-        renderer.domElement
-    );
-
+    const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    let currentObject = null;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 3));
 
-    function displayObject(object) {
+    let currentObject;
 
-        // Remove previous mesh
-        if (currentObject) {
-            scene.remove(currentObject);
-        }
+    function resize() {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
 
-        currentObject = object;
-
-        object.traverse(child => {
-            if (child.isMesh) {
-                child.material = new THREE.MeshStandardMaterial({
-                    color: 0x347daf,
-                    side: THREE.DoubleSide
-                });
-            }
-        });
-
-        scene.add(object);
-
-        // Automatically frame the mesh
-        const box = new THREE.Box3().setFromObject(object);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3()).length();
-
-        controls.target.copy(center);
-
-        camera.position.copy(center).add(
-            new THREE.Vector3(size, size * 0.7, size)
-        );
-
-        camera.near = Math.max(0.001, size / 1000);
-        camera.far = Math.max(100, size * 100);
+        renderer.setSize(width, height);
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
-
-        controls.update();
     }
 
-    const loader = new OBJLoader();
+    window.addEventListener('resize', resize);
+    resize();
 
     function load(url) {
-        loader.load(url, displayObject,
-            undefined, error => console.error(error));
+        new OBJLoader().load(url, object => {
+
+            if (currentObject) {
+                scene.remove(currentObject);
+                currentObject.traverse(child => {
+                    if (child.isMesh) {
+                        child.geometry.dispose();
+                        child.material.dispose();
+                    }
+                });
+            }
+
+            currentObject = object;
+
+            object.traverse(child => {
+                if (child.isMesh) {
+                    child.material = new THREE.MeshStandardMaterial({
+                        color: 0x7d9aad,
+                        side: THREE.DoubleSide
+                    });
+                }
+            });
+
+            scene.add(object);
+
+            // Automatically position camera around the object
+            const box = new THREE.Box3().setFromObject(object);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = Math.max(
+                ...box.getSize(new THREE.Vector3()).toArray()
+            );
+
+            controls.target.copy(center);
+            camera.position.copy(center).add(
+                new THREE.Vector3(size * 1.5, size, size * 1.5)
+            );
+
+            camera.near = Math.max(size / 1000, 0.001);
+            camera.far = Math.max(size * 100, 100);
+            camera.updateProjectionMatrix();
+            controls.update();
+
+        }, undefined, error => {
+            console.error('OBJ loading failed:', error);
+            container.insertAdjacentHTML(
+                'beforeend',
+                '<p class="viewer-error">Unable to display OBJ.</p>'
+            );
+        });
     }
 
-    function animate() {
-        requestAnimationFrame(animate);
+    renderer.setAnimationLoop(() => {
         controls.update();
         renderer.render(scene, camera);
-    }
+    });
 
-    animate();
-
-    return { load, displayObject };
+    return { load };
 }
 
-const simulatorViewer = createViewer('simViewer');
-const reconstructionViewer = createViewer('recViewer');
+const simViewer = createViewer('simViewer');
+const recViewer = createViewer('recViewer');
 
-// Expose functions to your normal homepage JavaScript
-window.showInput = url => simulatorViewer.load(url);
-window.showMesh = url => reconstructionViewer.load(url);
-</script>
+// -----------------------
+// 2. Preview uploaded OBJ
+// -----------------------
+let previewURL = null;
 
-<script>
-let latestSimulation = null;
+document.getElementById('obj').onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-async function startJob(formId, url, prefix) {
+    if (previewURL) URL.revokeObjectURL(previewURL);
+    previewURL = URL.createObjectURL(file);
+
+    simViewer.load(previewURL);
+};
+
+// -----------------------
+// 3. Run Python jobs
+// -----------------------
+async function runJob(formId, url, prefix) {
     const form = document.getElementById(formId);
     const data = new FormData(form);
-
-    // Uploaded CSV takes precedence over previous simulation
-    if (prefix === 'rec' && data.get('csv').size > 0) {
-        data.delete('sourceJob');
-    }
 
     const response = await fetch(url, {
         method: 'POST',
@@ -215,76 +227,74 @@ async function startJob(formId, url, prefix) {
     });
 
     const result = await response.json();
-
-    if (!response.ok) {
-        throw new Error(result.error);
-    }
+    if (!response.ok) throw new Error(result.error);
 
     const id = result.jobId;
 
-    document.getElementById(`${prefix}-output`).innerHTML = '';
-    document.getElementById(`${prefix}-logs`).textContent = '';
+    const stage = document.getElementById(`${prefix}-stage`);
+    const progress = document.getElementById(`${prefix}-progress`);
+    const logs = document.getElementById(`${prefix}-logs`);
+    const output = document.getElementById(`${prefix}-output`);
 
-    // Check Python job status every second
+    stage.textContent = 'Starting...';
+    progress.value = 0;
+    logs.textContent = '';
+    output.innerHTML = '';
+
     const timer = setInterval(async () => {
+        try {
+            const response = await fetch(`/job/${id}`);
+            if (!response.ok) throw new Error('Unable to get job status');
 
-        const response = await fetch(`/job/${id}`);
-        const job = await response.json();
+            const job = await response.json();
 
-        document.getElementById(`${prefix}-stage`).textContent =
-            job.stage;
+            stage.textContent = job.stage;
+            progress.value = job.progress;
+            logs.textContent = job.logs.join('\n');
 
-        document.getElementById(`${prefix}-progress`).value =
-            job.progress;
+            if (job.status === 'failed') {
+                clearInterval(timer);
+                return;
+            }
 
-        document.getElementById(`${prefix}-logs`).textContent =
-            job.logs.join('\n');
+            if (job.status !== 'completed') return;
 
-
-        if (job.status === 'completed') {
             clearInterval(timer);
 
             if (prefix === 'sim') {
                 latestSimulation = id;
-
                 document.getElementById('sourceJob').value = id;
 
-                // Show the original object
-                showInput(`/data/${id}/input.obj`);
+                simViewer.load(`/data/${id}/input.obj`);
 
-                // CSV download
-                document.getElementById('sim-output').innerHTML =
-                    `<a href="/data/${id}/dip_data.csv" download>
-                        Download Dipping Data (.csv)
-                    </a>`;
+                output.innerHTML = `
+                    <a href="/data/${id}/input.obj" download>Download OBJ</a>
+                    <a href="/data/${id}/dip_data.csv" download>Download CSV</a>
+                `;
+            } else {
+                recViewer.load(`/data/${id}/dip_reconstruction.obj`);
+
+                output.innerHTML = `
+                    <a href="/data/${id}/dip_reconstruction.obj" download>Download OBJ</a>
+                    <a href="/data/${id}/dip_data.csv" download>Download CSV</a>
+                `;
             }
 
-            if (prefix === 'rec') {
-
-                // Show reconstructed mesh
-                showMesh(`/data/${id}/dip_reconstruction.obj`);
-
-                // OBJ download
-                document.getElementById('rec-output').innerHTML =
-                    `<a href="/data/${id}/dip_reconstruction.obj" download>
-                        Download Reconstructed Mesh (.obj)
-                    </a>`;
-            }
-        }
-
-
-        if (job.status === 'failed') {
+        } catch (error) {
             clearInterval(timer);
+            stage.textContent = error.message;
         }
-
     }, 1000);
 }
 
+// -----------------------
+// 4. Form submissions
+// -----------------------
 document.getElementById('simulateForm').onsubmit = async e => {
     e.preventDefault();
 
     try {
-        await startJob('simulateForm', '/simulate', 'sim');
+        await runJob('simulateForm', '/simulate', 'sim');
     } catch (error) {
         document.getElementById('sim-stage').textContent = error.message;
     }
@@ -293,28 +303,19 @@ document.getElementById('simulateForm').onsubmit = async e => {
 document.getElementById('reconstructForm').onsubmit = async e => {
     e.preventDefault();
 
-    if (!latestSimulation &&
-        !document.querySelector('[name="csv"]').files.length) {
-        alert('Upload a CSV or complete a simulation first.');
+    const csv = document.getElementById('csv').files[0];
+
+    if (!csv && !latestSimulation) {
+        alert('Upload a CSV or run a simulation first.');
         return;
     }
 
     try {
-        await startJob('reconstructForm', '/reconstruct', 'rec');
+        await runJob('reconstructForm', '/reconstruct', 'rec');
     } catch (error) {
         document.getElementById('rec-stage').textContent = error.message;
     }
 };
-
-document.getElementById('obj').addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const url = URL.createObjectURL(file);
-
-    simulatorViewer.load(url);
-});
 </script>
-
 
 <%- include('partials/footer') %>

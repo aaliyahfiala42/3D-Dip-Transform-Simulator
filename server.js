@@ -8,7 +8,9 @@ const app = express();
 
 const {spawn } = require('child_process');
 
-const PYTHON = path.join(__dirname, '.venv', 'bin', 'python');
+const PYTHON = path.join(__dirname, '.venv', 
+    process.platform === 'win32' ? 'Scripts/python.exe'
+    : 'bin/python');
 const SCRIPTS = path.join(__dirname, 'scripts');
 const DATA = path.join(__dirname, 'data');
 
@@ -51,7 +53,7 @@ function createJob(type) {
         progress:0, 
         stage: 'starting', 
         logs:[], 
-        outouts:{}}
+        outputs:{}}
     jobs.set(id, job);
     return job;
 
@@ -66,6 +68,7 @@ function runPython(script, args, job) {
             {cwd: job.dir, env: {...process.env, WEB_MODE:'1'}});
 
         let buffer='';
+        let errorText = '';
 
         function handleLine(line) {
             line=line.trim();
@@ -75,15 +78,14 @@ function runPython(script, args, job) {
                     const data = JSON.parse(line.slice(9));
                     job.stage = data.stage;
                     job.progress = data.percent;
-
+                    return;
                 } catch {
-                    jobs.logs.push(line);
                 }
-            }else{
-                job.logs.push(line);
-                job.logs = job.logs.slice(-20);
-
             }
+            job.logs.push(line);
+            job.logs = job.logs.slice(-20);
+
+        
         }
 
         child.stdout.on('data', chunk => {
@@ -94,8 +96,9 @@ function runPython(script, args, job) {
         });
 
         child.stderr.on('data', chunk => {
-            jobs.logs.push(chunk.toString());
-            jobs.logs = jobs.logs.slice(-30);
+            errorText += chunk.toString();
+            job.logs.push(chunk.toString());
+            job.logs = job.logs.slice(-30);
         });
         child.on('error', reject);
         child.on('close', code => {
@@ -127,19 +130,20 @@ app.get('/references', (req, res) => {
 //run scripts
 
 app.post('/simulate', upload.single('obj'), (req, res)=>{
+    const job = createJob('simulation');
+
     //collect user inputs
     const shape = req.body.shape;
     const dips = String(req.body.dips);
     const noise = String(req.body.noise);
-    const job = createJob('simulation');
-    res.json({jobId: job.id});
+ 
 
     //if .obj file is uploaded, use that as shape instead
     if (req.file) {
         shape = path.join(job.dir, 'input.obj');
         fs.writeFileSync(shape, req.file.buffer);
     }
-
+     res.json({jobId: job.id});
 
     //try running the simulator.py asynchrosly
     (async () => {
@@ -167,11 +171,13 @@ app.post('/reconstruct', upload.single('csv'), (req, res)=>{
     //collect user inputs
 
     const job = createJob('reconstruction');
+        
+    const input = path.join(job.dir, 'dip_data.csv');
+    
 
     //if .obj file is uploaded, use that as shape instead
     if (req.file) {
-        const inputPath = path.join(job.dir, 'dip_data.csv');
-        fs.writeFileSync(inputPath, req.file.buffer);
+        fs.writeFileSync(input, req.file.buffer);
     } else {
         const previous = jobs.get(req.body.sourceJob);
         fs.copyFileSync(path.join(previous.dir, 'dip_data.csv'), input);
@@ -179,10 +185,10 @@ app.post('/reconstruct', upload.single('csv'), (req, res)=>{
 
     res.json({jobId: job.id});
 
-    //try running the simulator.py asynchrosly
+    //try running the reconstructor.py asynchrosly
     (async () => {
         try{
-            await runPython('p2_dip_simulator.py',
+            await runPython('p2_dip_reconstructor.py',
                 ['dip_data.csv'],
                 job
 
@@ -194,7 +200,7 @@ app.post('/reconstruct', upload.single('csv'), (req, res)=>{
             jobs.outputs = {obj: 'dip_reconstruction.obj' }
 
     } catch (error) {
-        jobs.logs.push(error.message);
+        job.logs.push(error.message);
         job.status = 'failed';
         job.stage ='reconstruction failed';
 
