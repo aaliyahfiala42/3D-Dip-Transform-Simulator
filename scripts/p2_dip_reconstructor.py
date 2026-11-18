@@ -355,11 +355,11 @@ with nullcontext():
         g = g / (pitch**3) #note need to normaliye g by the resolution, to match S (output is given in voxel units instead of mm3)
         return g
     
-    def solveSystem( B, g, method="LSMR", verbose=0 ):
+    def solveSystem( B, g, method="LSMR", lam = 0.05, verbose=0 ):
         if method == "LSMR":
-            lam = 0.05 #regularlizration strength
+            #lam = 0.05 #regularlizration strength
 
-            result = lsmr(B, g, damp=0.0, atol=1e-8, btol=1e-8, maxiter=10000)
+            result = lsmr(B, g, damp=lam, atol=1e-8, btol=1e-8, maxiter=10000)
 
             f = result[0]
 
@@ -390,10 +390,10 @@ with nullcontext():
 
 
 
-    def create_mesh(F_binary, export=1):
+    def create_mesh(f, export=1):
 
         #extract the isosurface
-        vertices, faces, normals, values = marching_cubes(F_binary, level=0.5, spacing=(pitch,pitch,pitch))
+        vertices, faces, normals, values = marching_cubes(f, level=0.5, spacing=(pitch,pitch,pitch))
         
         #create mesh
         mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=True)
@@ -411,8 +411,10 @@ with nullcontext():
 
     #1. Voxelize space in cubic grid 
     print("\n Defining voxel grid", flush=True)
+    
     n = 20 #number of voxels along one axis
-    N, extent, pitch = define_gridspace(dip_data, n=n, padding=1.1)
+
+    N, extent, pitch = define_gridspace(dip_data, n=n, padding=2)
     slice_edges, grid = voxelize_grid(extent, pitch, n)
     
     #2. Uniform resampling

@@ -46,7 +46,7 @@ Example:
         <img src="/images/submerged.png">
 
         <h3> 1. Voxelization</h3>
-        <p>The class age old story of moving from a continuous domain to a discrete one arises again, with the usual problems of crude approximations.</p>
+        <p>The age old story of moving from a continuous domain to a discrete one arises again, with the usual problems of trying to fit a cube into a round hole.</p>
         <p>
 
             We divide the mesh into a cubic voxelized grid using the "standard voxelization method". 
@@ -232,18 +232,9 @@ Example:
             </li>
         </ul>
 
+    //TODO create image (simple example?) of a sliced cubed and corresponding S matrix
 
-        <h3>4. Thresholding</h3>
-
-        <ul>
-            <li>Otsus' methods</li>
-
-            <li>Volume based method</li>
-
-            <li>None</li>
-        </ul>
-
-        <h3>5. System solvers</h3>
+        <h3>4. System solvers</h3>
 
         <p>Many methods were mentioned in the original paper...</p>
 
@@ -253,6 +244,8 @@ Example:
             <li>LSQR:an iterative solver </li>
 
             <li>Pseudo inverse</li>
+                    B is not (generally) square and invertible
+
             <p>f = B ^t g, B^t = BT(BBT)^-1</p>
             <ul>
                 <li>Using SVD to compute the Min-norm solution does not work, as it does not respect sparsity</li>
@@ -262,30 +255,25 @@ Example:
 
         </ul>
 
+        <h3>5. Clamping </h3>
 
-    //TODO create image (simple example?) of a sliced cubed and corresponding S matrix
+        <ul>
+            <li>Otsus' methods</li>
 
+            <li>Volume based method: (light bulb) what if we instead determine the threshold level based on the total volume (known from the displacement when the object is completley submerged) 
+                and use this to estimate "inside" and "outside" voxels.
+            </li>
 
-
-        B = S . R
-
-        B is not (generally) square and invertible
-
-    6. Inverse reconstruction
-    This is an inverse optimization as we are using the dip measurements to estimate the original 3D object. 
-    As it is dicrete the solutions may not be unique. 
-
-
-    Use LSMR (or other methods) to estimate the continuous occupancy values of the unknown object
+            <li>None: turns out, this may not even be a necessary setup, as the Marching Cubes can just solve directly without binary input. Running a handful of small experiments, the error appears negligible</li>
+        </ul>
 
 
-    7. Clamping 
-    Otsu thresholding 
-    Determine the threshold level to accurately estimate "inside" and "outside" voxels 
+
+        <h3>6. Construct mesh</h3>
+        <p>Marching cubes: We use the marching cubes algorithm to build a final triangle mesh </p>
 
 
-    8. Marching cubes
-    Use marching cubes to build a triangle mesh 
+
 
 </section>
 

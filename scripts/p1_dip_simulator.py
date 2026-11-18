@@ -291,6 +291,7 @@ with nullcontext():
  
     #Run the simulation in steps
 
+    n = 100 #number of voxels along one axis
 
     #1. Load user input as a mesh 
     print("\n Loading mesh", flush=True)
@@ -301,7 +302,8 @@ with nullcontext():
 
     #2. Voxelize the mesh 
     print("\n Voxelization", flush=True)
-    mesh_voxelized, pitch = apply_voxelization(mesh, verbose=0)
+    mesh_voxelized, pitch = apply_voxelization(mesh, target_grid_width = n, verbose=0)
+
 
     #3. Generate orientations from the number of dips, using Fibonacci Sphere
     print("\n Generating orientations", flush=True)
@@ -309,7 +311,7 @@ with nullcontext():
 
     #4. Apply dips, startup the machine, build the dip data matrix
     print("\n Simulating dips", flush=True)
-    dip_data = dip_simulator(mesh_voxelized, orientations, pitch, m_slices = 100, verbose=0)
+    dip_data = dip_simulator(mesh_voxelized, orientations, pitch, m_slices = n, verbose=0)
 
     #create the csv output
     print("\n Saving dip data", flush=True)
