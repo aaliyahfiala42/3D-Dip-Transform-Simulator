@@ -32,7 +32,7 @@
 
 # Run cmd example:
 # python p2_dip_reconstructor.py "path/to/dip_data.csv" 
-# python p2_dip_reconstructor.py "../data/dip_data.csv" 
+# python p2_dip_reconstructor.py "dip_data.csv" 
 
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
 
@@ -413,7 +413,7 @@ with nullcontext():
     resampled = dip_resampling(dip_data, slice_edges)
 
     #3. Inverse optimization
-    print("\n  Optimizing inversely", flush=True)
+    print("\n Optimizing inversely", flush=True)
         #i. create rotation matrix R
         # R = rotation_matrix(dip_data, n, pitch)
         #ii. create summation matrix S

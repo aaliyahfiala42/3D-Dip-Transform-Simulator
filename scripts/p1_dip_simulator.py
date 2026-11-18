@@ -292,11 +292,11 @@ with nullcontext():
     #Run the simulation in steps
 
 
-    #1. Load user input as a mesh we can work with
+    #1. Load user input as a mesh 
     print("\n Loading mesh", flush=True)
     mesh = get_mesh(shape,  verbose=0)
 
-        #save mesh for web viewer
+    #save mesh for web viewer
     mesh.export("input.obj")
 
     #2. Voxelize the mesh 

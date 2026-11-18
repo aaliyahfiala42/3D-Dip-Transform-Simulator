@@ -1,15 +1,25 @@
 <%- include('partials/header') %>
-1. Archimedes Principle
+<section>
 
-Eureka! 
+<h2>The foundation: Archimedes Principle</h2>
 
-The volume of fluid displaced is equal to the volume of the object submerged
+<p>"Eureka!", was surely what the reearchers Aberman et. al thought, when they had the novel idea of employing fluid displacements as a 3D shape sensor. 
+</p> 
 
-Delta V_water = delta V_object submegered
+<p>Archemides' principle (c.246 BC) states:</p>
+<quote>Any object, totally or partially immersed in a fluid or liquid, is buoyed up by a force equal to the weight of the fluid displaced by the object.</quote>
+
+<p>i.e the volume of fluid displaced is equal to the volume of the object submerged.</p>
+
+
+delta V_water = delta V_object submegered
+
+
 
 This is the foundation for the logic behind the dip machine. By measuring the level of water displaced as an object is dipped in various orientations, 
 we can obtain the 3D dip transform of an object. 
-What is a 3D dip transform? 
+
+<h3>What is a 3D dip transform?</h3>
 
 Given an object, we can represent it as volumetric binary implicit function:
 F(x) = 1 x in the objects interior domain, 0 otherwise
@@ -24,25 +34,29 @@ Example:
 
 [Insert images of cube and sphere and their corresponding dip profile, showing how the shape intuitively changes according to the shpae ]
 
+</section>
 
-2. Dipping Simulator 
-    a. To allow experiments with various objects and configurable parameters, and to prove that the concept can provide reasonable results, it makes sense to start with 
-    a virtual dip machine. The virtual dipping machine takes in various parameters and outputs a tensor of example output that one would see after using a dip machine, simulating counting
-    the amount of object submerged, taking measurements of the amount of "water displaced", for vairous orientation (phi, theta).
+<section>
+<h2>Virtual Dip Simulator</h2>
+    
+    <p>To allow experiments with various objects and configurable parameters, and to prove that the concept can provide reasonable results, it makes sense to start with 
+    a virtual dip machine. The virtual dipping machine takes in various parameters and outputs a tensor of example output that one would see after using a dip machine, 
+    generating regular measurements of the amount of "water" displaced, for vairous orientations (phi, theta).</p>
 
-    [insert visual of a voxelized sphere half submergeed in water. ]
+    <img> [insert visual of a voxelized sphere half submergeed in water. ] </img>
 
-    a. Voxelization
+        <h3> 1. Voxelization</h3>
+    1. Voxelization
     Continuous to disrcrete
     Given an infinite number of orientations (i.e inifinte dips), we would be able to solve the shape perfectly, 
     As time is limited, we must satisfy ourselves with the practicle application of making an estimation with a limited number of dipping orientations
 
 
-    b. Virtual dipping
+    2. Virtual dipping
     Rotate the dipping direction, move virtual water plane through the object and count the number of voxels submerged
-
-
-3. Dip Reconstruction
+</section>
+<section>
+<h2>3D Shape Reconstruction</h2>
     a. Measurement resampling
     Model assumes uniformelz spaced slices that do not occur in practicle application, need to interpolate the cumulative measurements to
     estimate uniform samples
@@ -74,6 +88,7 @@ Determine the threshold level to accurately estimate "inside" and "outside" voxe
 8. Marching cubes
 Use marching cubes to build a triangle mesh 
 
+</section>
 
 
 
