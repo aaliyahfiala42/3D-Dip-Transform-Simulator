@@ -49,7 +49,7 @@ function createJob(type) {
     const job = {
         id, dir,
         type, 
-        status: 'queued', 
+        status: 'running', 
         output: '', 
         outputs:{}}
     jobs.set(id, job);
@@ -63,18 +63,22 @@ function runPython(script, args, job) {
         
         const child = spawn(PYTHON,
             ['-u', path.join(SCRIPTS, script), ...args], 
-            {cwd: job.dir});
+            {cwd: job.dir, 
+                env: {
+                    ...process.env, PYTHONIOENCODING: 'utf-8'
+                }
+            });
 
 
         child.stdout.on('data', chunk => {
             job.output += chunk.toString();
-            job.output = job.output.slice(-10000);
+            job.output = job.output.slice(-100000);
 
         });
 
         child.stderr.on('data', chunk => {
             job.output += chunk.toString();
-            job.output = job.output.slice(-10000);
+            job.output = job.output.slice(-100000);
         });
 
         child.on('error', reject);
@@ -117,7 +121,8 @@ app.post('/simulate', upload.single('obj'), (req, res)=>{
         shape = path.join(job.dir, 'input.obj');
         fs.writeFileSync(shape, req.file.buffer);
     }
-     res.json({jobId: job.id});
+    
+    res.json({jobId: job.id});
 
     //try running the simulator.py asynchrosly
     (async () => {
@@ -130,8 +135,7 @@ app.post('/simulate', upload.single('obj'), (req, res)=>{
 
     } catch (error) {
         job.status= 'failed';
-        job.stage='simulation failed';
-        job.logs.push(error.message);
+        job.output += error.message;
 
     }
     })();
@@ -171,9 +175,8 @@ app.post('/reconstruct', upload.single('csv'), (req, res)=>{
             job.outputs = {obj: 'dip_reconstruction.obj' }
 
     } catch (error) {
-        job.logs.push(error.message);
         job.status = 'failed';
-        job.stage ='reconstruction failed';
+        job.output += error.message;
 
     }
     })();

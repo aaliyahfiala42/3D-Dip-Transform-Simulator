@@ -42,7 +42,7 @@ from pathlib import Path
 import itertools
 import threading
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 
 import numpy as np
 import trimesh
@@ -150,7 +150,9 @@ def loading(message="Dip reconstruction in process: "):
 
 
 
-with loading():
+#with loading():
+with nullcontext():
+
     #time.sleep(5)
 
 

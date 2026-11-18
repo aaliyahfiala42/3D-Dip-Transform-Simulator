@@ -52,7 +52,7 @@ import scipy
 import itertools
 import threading
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 
 
 #   _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ _____ 
@@ -141,7 +141,8 @@ def loading(message="Dip simulation in process: "):
 
 
 
-with loading():
+#with loading():
+with nullcontext():
     #time.sleep(5)
 
 
