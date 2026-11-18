@@ -43,17 +43,38 @@ Example:
     a virtual dip machine. The virtual dipping machine takes in various parameters and outputs a tensor of example output that one would see after using a dip machine, 
     generating regular measurements of the amount of "water" displaced, for vairous orientations (phi, theta).</p>
 
-    <img> [insert visual of a voxelized sphere half submergeed in water. ] </img>
+        <img src="/images/submerged.png">
 
         <h3> 1. Voxelization</h3>
-    1. Voxelization
-    Continuous to disrcrete
-    Given an infinite number of orientations (i.e inifinte dips), we would be able to solve the shape perfectly, 
-    As time is limited, we must satisfy ourselves with the practicle application of making an estimation with a limited number of dipping orientations
+        <p>The class age old story of moving from a continuous domain to a discrete one arises again, with the usual problems of crude approximations.</p>
+        <p>
 
+            We divide the mesh into a cubic voxelized grid using the "standard voxelization method". 
+            The longest mesh side is taken to determine the voxel pitch(mm) needed to create a arbitrary 100x100x100 voxel grid. A more sophisticated approach
+            would be to estimate the grid resolution by comparing the percent error of the actual versus voxelized volume, and picking a threshold of allowed error. 
+            Perhaps a later update for version 2.
 
-    2. Virtual dipping
-    Rotate the dipping direction, move virtual water plane through the object and count the number of voxels submerged
+        </p>
+
+        <h3> 2. Generate Orientation</h3>
+        <p>
+        Given an infinite number of orientations (i.e inifinte dips), we would theoretically able to solve the shape perfectly.As (rather unfortunatley) we are limited to building a discrete dipping machine, we must satisfy ourselves with the practicle application 
+        of making an estimation with a limited number of dipping orientations. 
+        </p>
+        
+        
+        <p>
+        The user inputs the number of dips k that they would like to simulate, and from this we find the corresponding k number of orientations (phi, theta) in a uniform distribution.
+        The original research did not provide how these orientations where calculated, so for this application we dicided to use the Fibonnaci Sphere. 
+        </p>
+
+        <h4>Fibonacci Sphere</h4>
+        <p>A algorithm that distributes k points approximately uniformely across a sphere using a golden-angle spiral</p>
+
+        <img src="/images/fibonacci.png">
+
+        2. Virtual dipping
+        Rotate the dipping direction, move virtual water plane through the object and count the number of voxels submerged
 </section>
 <section>
 <h2>3D Shape Reconstruction</h2>
