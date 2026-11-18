@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
 <section>
 
-<h2>The foundation: Archimedes Principle</h2>
+<h2>Archimedes Principle</h2>
 
 <p>"Eureka!", was surely what the reearchers Aberman et. al thought, when they had the novel idea of employing fluid displacements as a 3D shape sensor. 
 </p> 
@@ -55,6 +55,7 @@ Example:
             Perhaps a later update for version 2.
 
         </p>
+        <img src="/images/voxel_sphere.png">
 
         <h3> 2. Generate Orientations</h3>
         <p>
@@ -73,16 +74,17 @@ Example:
 
         <img src="/images/fibonacci.png">
             
-        golden_angle = pi(3 - root(5))
-        Algorithm: 
-            For in i (0, N-1):
-                calculate (x,y,z) by proejctign the spiral onto spherical coordinates
-                z = 1- (i/(N-1))
-                golden_angle = np.pi * (3 - np.sqrt(5)) 
-                phi = i x golden-angle
-                theta = arccos(z)
-                x = rcos(theta)
-                y = rsin(theta)
+            golden_angle = pi(3 - root(5))
+            
+            Algorithm: 
+                For in i (0, N-1):
+                    calculate (x,y,z) by proejctign the spiral onto spherical coordinates
+                    z = 1- (i/(N-1))
+                    golden_angle = np.pi * (3 - np.sqrt(5)) 
+                    phi = i x golden-angle
+                    theta = arccos(z)
+                    x = rcos(theta)
+                    y = rsin(theta)
 
 
         <h3> 3. Virtual dipping </h3>
@@ -104,41 +106,198 @@ Example:
             <li>n: normal unit vector orthogonal to the water surface (for the given dipping orientation)</li>
        </ul>
 
+       <h4>4. File Ouput</h4>
+       <p>
+            The dip sumulator generates a .csv file with the layout: 
+                    
+            columns = ["dip no.", "theta", "phi", "water_height_measurement_mm", "displace_vol_mm3"]
+
+            This is also the expected input format for the 3d shape reconstructor.
+       </p>
+
 </section>
 <section>
-<h2>3D Shape Reconstruction</h2>
-    a. Measurement resampling
-    Model assumes uniformelz spaced slices that do not occur in practicle application, need to interpolate the cumulative measurements to
-    estimate uniform samples
+    <h2>3D Shape Reconstruction</h2>
+        <p>Now to the exciting parts: how can we possibly create a 3 dimensional object from 1 dimensional information? </p>
+        <p>The solution is the same for all data related problems: more data and linear algebra.</p>
 
-    b. Rotation and Summation matrices
-    How to build a solvable system of equations with the information available
+        <h3>1. Voxelization</h3>
+        <p>Before exploring the dip data, we first need to define the space in which we will build the voxelized object.</p>    
 
-    Rotation matrix R: Maps the original voxel values into rotated grids
+            Using the predetermined resolution (future parameter?) of a 100x100x100 cubic voxelization, centered at the origin, we estimate the 
+             size of the voxels by using the maximum water height in the dataset, with some variable padding for breathing room.
+        
+        <ul>
+        <b>Useful vocabulary:</b>
+            <li>extent: length (mm) of one axis of the voxel grid</li>
+            <li>pitch: length (mm) of one cubic voxel</li>
+            <li>resolution: number of voxels of one grid </li>
+        </ul>
 
-    Summation matrix S: Add the voxel values within horizontal slices
+        <h3>2. Measurement resampling</h3>
 
-    B = S . R
+        <p>
+        The model assumes uniformely spaced water height slices in each dip. 
+        Although this is the case from the output of the virtual simulator, this would not occur in practicle application. Therefore we need to interpolate the cumulative measurements to
+        estimate m uniform samples. 
+        </p>
 
-    B is not (generally) square and invertible
+        <p>
+        This is due to as you lower the object at a constant height step, the corresponding water measure will be a constant plus the amount of object submerged.
+        The change in water level is not expected to be constant if the volume of the object is not distrubuted equally.
+        </p>
 
-6. Inverse reconstruction
-This is an inverse optimization as we are using the dip measurements to estimate the original 3D object. 
-As it is dicrete the solutions may not be unique. 
+        <p>Note: The number of uniform slices is bound by the water elavation rate.</p>
+
+        <b>Piecewise Cubic Hermite Interpolating Polynomial (PCHIP) Interpolation</b>
+        <p>The original authors of the algorithm did not specify a Interpolation method, thus with freedom of choice, thus we take PCHIP Interpolation.
+            The algorithm preserves monotonicity which is a valid assumption to take advantage of in our dipping, and can handle data that is not smooth, 
+            ideally being equiped to handle potential measurement and calibration errors.
+        </p>
+
+        <img src="/images/resampling.png">
 
 
-Use LSMR (or other methods) to estimate the continuous occupancy values of the unknown object
+        <h3>3. Inverse optimization setup</h3>
+        <p>Given our dip measurements we now define a inverse optimization problem to solve for the object that could 
+            construct such dip patterns. We want to solve for a voxelized object f that over various orientations and 
+            dipping layers (expressed in B) yields the vectorized dip measurements g.
+        </p>
+        <p>arg min f  ||g - Bf||</p>
 
 
-7. Clamping 
-Otsu thresholding 
-Determine the threshold level to accurately estimate "inside" and "outside" voxels 
+        <h4>B "rotate and sum" matrix </h4>
+        <p>But how to design such a system that captures the various orientations and slicing combinations?</p>
+        <p>To build the matrix B, we break it into two operations: rotation and summation. That is B can be expressed as: </p>
+
+        <p>B = S * R </p>
+
+        <p><b>Rotation matrix R:</b> a sparse vector of rotation matrices, storing the interpolated rotated voxel center positions, for each orientation (phi, theta)
+            </p>
+            
+        <p>
+            R = ( R_(phi, theta)_1  R_(phi, theta)_2  ...  R_(phi, theta)_k ) /in R ^ (kN x N) 
+        </p>
+
+        <p>Note the size: in our N=100x100x100 resolution grid, the size of R is the number of dips (ideally ranging from 400-1000+) x 1,000,000**2, with 8 nonzero entries per row on average.</p>
+        
+
+        <ul>
+            <b>Constructing R: </b>
+            <li>
+                    For each orientation, we construct a rotational basis, that acts as a orthonormal 
+                    coordinate system that is aligned with our unit normal vector (normal to the surface of the water). This is typical 3x3 rotation matrix, where 
+                    z is the unit normal, and x and y are unit vectors orthogonal to z and each other.  
+            </li>
+            <li>
+                    Using the rotational basis, we compute the rotation operations R_(phi, theta) by projecting each voxel center positions onto the rotational basis, to 
+                    get the rotated voxel positions. But, there is an issue: the updated voxel positions do not necessarily map to a new voxel but rather offcenter. To solve this, 
+                    we use trilinear interpolation to check the 8 neighboring voxels. The interpolation weights are stored per row. Meaning each row contains at most 8 non-zero entries.
+            </li>
+            <li>    Stacking the rotation operators together for each orientation builds a complete rotation matrix.
+            </li>
+        </ul>
+
+    
+        //TODO create image (simple example?) explaning the inteprolation number 8, showing it is necessary as the new voxel center posisiton does not necessarily map 
+    to a new center, but rather in between 8 
 
 
-8. Marching cubes
-Use marching cubes to build a triangle mesh 
+
+        <p><b>Summation matrix S: </b> a binary diagonal matrix of matrices, that gives the number of "active" voxels in each complete slice, for each dip
+            S = diag(S_bar, S_bar, ... S_bar)
+        </p>
+
+        <p>Note the size: S^bar in R ^(MxN) and S in R^(kMxKM) , with k number of dips, M number of slices and N = 1,000,0000</p>
+        
+
+
+        <ul>
+            <b>Constructing S: </b>
+            <li>
+                In practice computing S is done with the kronecker product of a identity matrix and a column vector of 1s 
+
+
+            </li>
+
+            <li>
+                def summation_matrix(n, n_dips):
+                    #one slice is the sum of n*n voxels
+                    S_bar = kron(csr_matrix(np.ones((1, n*n))), 
+                            eye(n, format="csr"), 
+                            format="csr")
+
+                    S = block_diag ([S_bar] * n_dips, format = "csr")
+                    return S
+            </li>
+        </ul>
+
+
+        <h3>4. Thresholding</h3>
+
+        <ul>
+            <li>Otsus' methods</li>
+
+            <li>Volume based method</li>
+
+            <li>None</li>
+        </ul>
+
+        <h3>5. System solvers</h3>
+
+        <p>Many methods were mentioned in the original paper...</p>
+
+        <ul>
+            <li>LSMR:an iterative solver </li>
+
+            <li>LSQR:an iterative solver </li>
+
+            <li>Pseudo inverse</li>
+            <p>f = B ^t g, B^t = BT(BBT)^-1</p>
+            <ul>
+                <li>Using SVD to compute the Min-norm solution does not work, as it does not respect sparsity</li>
+                <li>Using Cholesky factorization</li>
+            </ul>
+
+
+        </ul>
+
+
+    //TODO create image (simple example?) of a sliced cubed and corresponding S matrix
+
+
+
+        B = S . R
+
+        B is not (generally) square and invertible
+
+    6. Inverse reconstruction
+    This is an inverse optimization as we are using the dip measurements to estimate the original 3D object. 
+    As it is dicrete the solutions may not be unique. 
+
+
+    Use LSMR (or other methods) to estimate the continuous occupancy values of the unknown object
+
+
+    7. Clamping 
+    Otsu thresholding 
+    Determine the threshold level to accurately estimate "inside" and "outside" voxels 
+
+
+    8. Marching cubes
+    Use marching cubes to build a triangle mesh 
 
 </section>
+
+
+<section>
+    Obeservations/assumptions/problems encountered
+        <img src="/images/funky_cube.png">
+
+
+</section>
+
+
 
 
 

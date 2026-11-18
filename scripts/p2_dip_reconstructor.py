@@ -165,9 +165,8 @@ with nullcontext():
     #N: # voxels in the entire cubic grid
     #extent: length of one axis (mm)
     #pitch: length of one cubic voxel (mm)
-    #padding: 
 
-    def define_gridspace(dip_data, n=100, padding=1.1, verbose=0):
+    def define_gridspace(dip_data, n=100, padding=2, verbose=0):
         N = n**3
         max_height = np.max(np.abs(dip_data[:,:,3])) #find the max water height in the dataset 
         extent = (2 * max_height * padding)
@@ -244,14 +243,17 @@ with nullcontext():
     #construct a orthonormal coordinate system aligned with the normal vector
     def get_rotation_basis(theta, phi):
         z = get_normal(theta,phi)
+
         #find a reference direction not parallel to normal
         ref = np.array([1.0,0.0,0.0])
         if abs(np.dot(ref, z)) > 0.95:
             ref = np.array([0.0,1.0,0.0])
 
-        #get first axis
+        #get first axis, orthogonal to z
+        #vector projecttion subtraction , remove the parallel component 
+        # u = r-(r*n)n
         x = ref - np.dot(ref, z)*z
-        ##normalize x
+        ##normalize x (unit vecotr)
         x = x/np.linalg.norm(x)
         
         #second plane axis
@@ -373,16 +375,21 @@ with nullcontext():
     def solution_error(g, f, B):
         g_est = B @ f
         rmse = np.sqrt(np.mean((g_est - g)** 2))
-        print("     RMSE: ",rmse)
+        print("RMSE: ",rmse)
         return rmse         
 
     def clamping(f, n, method="otsu", verbose=0):
-        threshold = threshold_otsu(f)
-        f_binary  = f > threshold
-        F_binary = f_binary.reshape(n,n,n) #reshape back into cube grid
+        if (method=="otsu"):
+            threshold = threshold_otsu(f)
+            f_binary  = f > threshold
+            F_binary = f_binary.reshape(n,n,n) #reshape back into cube grid
+            return F_binary
+        
+        F_none = f.reshape(n,n,n) #reshape back into cube grid
+        return F_none
 
-        return F_binary
-    
+
+
     def create_mesh(F_binary, export=1):
 
         #extract the isosurface
@@ -413,21 +420,25 @@ with nullcontext():
     resampled = dip_resampling(dip_data, slice_edges)
 
     #3. Inverse optimization
-    print("\n Optimizing inversely", flush=True)
         #i. create rotation matrix R
         # R = rotation_matrix(dip_data, n, pitch)
         #ii. create summation matrix S
         # S = summation_matrix(n, k_dips)
         #iii. build B = S * R
         # B = S @ R
+    print("\n Building B = S*R", flush=True)
+
     B = rotate_and_sum_matrix(dip_data, n, pitch) #save memory instead of storing both R and S, computes per dip
         #iv. build g
     g = sample_matrix(resampled, pitch)
         #v. apply optimization algorithm
+
+    print("\n Solving the system", flush=True)
+
     f = solveSystem(B, g)
 
-    #(optional) check quality of f
-    #rmse = solution_error(g, f, B)
+    #check quality of f
+    rmse = solution_error(g, f, B)
 
     #4. Make binary cubic grid
     print("\n Clamping", flush=True)
@@ -436,8 +447,6 @@ with nullcontext():
     #5. create mesh from binary grid 
     print("\n Creating mesh", flush=True)
     mesh = create_mesh(F_binary)
-    
-
 
 
 print("\n 3D reconstruction complete. Bio-digital jazz, man. \n")
