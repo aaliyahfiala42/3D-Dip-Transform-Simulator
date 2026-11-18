@@ -56,7 +56,7 @@ Example:
 
         </p>
 
-        <h3> 2. Generate Orientation</h3>
+        <h3> 2. Generate Orientations</h3>
         <p>
         Given an infinite number of orientations (i.e inifinte dips), we would theoretically able to solve the shape perfectly.As (rather unfortunatley) we are limited to building a discrete dipping machine, we must satisfy ourselves with the practicle application 
         of making an estimation with a limited number of dipping orientations. 
@@ -65,16 +65,45 @@ Example:
         
         <p>
         The user inputs the number of dips k that they would like to simulate, and from this we find the corresponding k number of orientations (phi, theta) in a uniform distribution.
-        The original research did not provide how these orientations where calculated, so for this application we dicided to use the Fibonnaci Sphere. 
+        The original research did not provide how these orientations where calculated, therfore the decision was made to use the Fibonnaci Sphere. Other options could be the equi angular gird.
         </p>
 
         <h4>Fibonacci Sphere</h4>
-        <p>A algorithm that distributes k points approximately uniformely across a sphere using a golden-angle spiral</p>
+        <p>An algorithm that defines the distribution of k points approximately uniformely across a sphere using a golden-angle spiral.</p>
 
         <img src="/images/fibonacci.png">
+            
+        golden_angle = pi(3 - root(5))
+        Algorithm: 
+            For in i (0, N-1):
+                calculate (x,y,z) by proejctign the spiral onto spherical coordinates
+                z = 1- (i/(N-1))
+                golden_angle = np.pi * (3 - np.sqrt(5)) 
+                phi = i x golden-angle
+                theta = arccos(z)
+                x = rcos(theta)
+                y = rsin(theta)
 
-        2. Virtual dipping
-        Rotate the dipping direction, move virtual water plane through the object and count the number of voxels submerged
+
+        <h3> 3. Virtual dipping </h3>
+        For each orientation, we proceed to "dip" the object by dividing it in equally spaced slices, and counting the number of voxels in each slice, to define a single dip measure. 
+        
+        Rotate the dipping direction, move virtual water plane through the object and count the number of voxels submerged.
+
+        As we rotate the object (i.e iterate thought the orientations) we calculate the direction of the center of the object normal to the direction of the water. 
+        We then project each coordinate (specifically each voxel center) onto the normal vector (normal to the water surface).
+        We divide the total water height into m uniform slices (in this simulation m is fixed to 100, but this could be made a configurable parameter).
+        We then easy count the number of voxel centers that are submerged in each water slice, by comparing if the 
+        voxel center is less than or equal to cumulated water slice height. 
+        That is, 
+
+        <p>V(h) = sum_{i=1}^N *1* (p_i * n <= h)  </p>
+        <ul>
+            <li>p_i: position of the voxel centers </li>
+            <li>h: height of the water slice</li>
+            <li>n: normal unit vector orthogonal to the water surface (for the given dipping orientation)</li>
+       </ul>
+
 </section>
 <section>
 <h2>3D Shape Reconstruction</h2>

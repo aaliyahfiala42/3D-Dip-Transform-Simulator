@@ -211,7 +211,7 @@ with nullcontext():
         indices = np.arange(number_of_dips)
         
         # Approximately uniform distribution on a sphere
-        z = 1 - 2 * (indices + 0.5) / number_of_dips
+        z = 1 - indices / number_of_dips
         golden_angle = np.pi * (3 - np.sqrt(5)) #from wolfram mathworld
         phi = indices * golden_angle
         theta = np.arccos(z)
